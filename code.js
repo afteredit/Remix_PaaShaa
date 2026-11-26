@@ -5,10 +5,10 @@
  * دادهٔ استان/شهر ایران برگرفته از sajaddp/list-of-cities-in-Iran (GPL-3.0):
  * https://github.com/sajaddp/list-of-cities-in-Iran
  *
- * نسخه: 0.14.0-cc — پنل مدیریت مرحله‌ای و دکمه‌محور (داشبورد ۸ دسته‌ای + مرکز تنظیمات هوشمند)
+ * نسخه: 0.15.0-remix — آرشیو ریمیکس، سفارش‌های خدماتی و گیت عضویت/ری‌اکشن
  */
 const APP = {
-  VERSION: "0.14.0-cc",
+  VERSION: "0.15.0-remix",
   TZ: "Asia/Tehran",
   SHEETS: {
     SETTINGS: "Settings", USERS: "Users", SESSIONS: "Sessions", STARTS: "Starts",
@@ -25,6 +25,8 @@ const APP = {
     PLANS: "SubscriptionPlans",
     SUBSCRIPTIONS: "Subscriptions",
     PAYMENT_REQUESTS: "PaymentRequests",
+    SERVICE_ORDERS: "ServiceOrders", REMIX_PURCHASES: "RemixPurchases",
+    REACTION_POSTS: "ReactionPosts", REACTION_STATES: "ReactionStates",
     ARTIST_LINKS: "ArtistLinks",
     ARTIST_LINKS_HISTORY: "ArtistLinksHistory",
     DELIVERY_LOG: "DeliveryLog", ADMIN_LOG: "AdminLog", ERROR_LOG: "ErrorLog"
@@ -66,6 +68,10 @@ let SUBMISSION_CHANNELS_MEMO_ = null;
 let PLANS_MEMO_ = null;
 let SUBSCRIPTIONS_MEMO_ = null;
 let PAYMENT_REQUESTS_MEMO_ = null;
+let SERVICE_ORDERS_MEMO_ = null;
+let REMIX_PURCHASES_MEMO_ = null;
+let REACTION_POSTS_MEMO_ = null;
+let REACTION_STATES_MEMO_ = null;
 let ARTIST_LINKS_MEMO_ = null;
 let ARTIST_LINKS_HISTORY_MEMO_ = null;
 function resetRuntimeCaches_() {
@@ -82,6 +88,8 @@ function resetRuntimeCaches_() {
   CONNECTED_CHANNELS_MEMO_ = null; CC_BANNER_MEMO_ = null; CC_POSTS_MEMO_ = null; BOT_USER_ID_MEMO_ = null;
   PUBLISH_CHANNELS_MEMO_ = null; SUBMISSION_CHANNELS_MEMO_ = null;
   PLANS_MEMO_ = null; SUBSCRIPTIONS_MEMO_ = null; PAYMENT_REQUESTS_MEMO_ = null;
+  SERVICE_ORDERS_MEMO_ = null; REMIX_PURCHASES_MEMO_ = null;
+  REACTION_POSTS_MEMO_ = null; REACTION_STATES_MEMO_ = null;
   ARTIST_LINKS_MEMO_ = null; ARTIST_LINKS_HISTORY_MEMO_ = null;
 }
 
@@ -113,21 +121,31 @@ const HEADERS = {
   SubscriptionPlans: ["plan_id", "name", "price", "days", "track_quota", "channel_scope", "channels_json", "badge", "active", "sort", "created_at"],
   Subscriptions: ["subscription_id", "user_id", "plan_id", "status", "slots_total", "slots_used", "period_start", "expires_at", "channels_json", "granted_by", "payment_id", "note", "created_at", "updated_at"],
   PaymentRequests: ["request_id", "user_id", "plan_id", "plan_name", "amount", "ref_code", "receipt_file_id", "status", "admin_note", "created_at", "reviewed_by", "reviewed_at"],
+  ServiceOrders: ["order_id", "user_id", "kind", "details", "status", "admin_note", "created_at", "updated_at"],
+  RemixPurchases: ["purchase_id", "submission_id", "user_id", "amount", "ref_code", "receipt_file_id", "status", "admin_note", "created_at", "reviewed_by", "reviewed_at"],
+  // New columns are appended to preserve row alignment in installations upgraded in place.
+  ReactionPosts: ["channel_id", "message_id", "title", "post_url", "required_emojis", "active", "created_at", "source", "channel_username"],
+  ReactionStates: ["state_key", "channel_id", "message_id", "user_id", "emojis", "updated_at"],
   ArtistLinks: ["user_id", "platform", "url", "version", "source", "updated_at"],
   ArtistLinksHistory: ["user_id", "platform", "version", "url", "source", "archived_at", "reason"],
   ErrorLog: ["log_id", "where", "message", "extra", "user_id", "created_at"]
 };
 
 const DEFAULT_SETTINGS = {
-  ADMIN_IDS: "", CLAIM_CODE: "", READY: "false", BRAND_NAME: "فلورا بات | موزیک",
+  ADMIN_IDS: "", CLAIM_CODE: "", READY: "false", BRAND_NAME: "Remix Paashaa",
   LEGACY_APP_SECRET: "", // فقط برای پذیرش لینک‌های امضاشدهٔ قدیمی بعد از تغییر نام برند
   CONNECTED_CHANNELS_MODE: "optional", // optional | required — اجباری‌کردن اتصال کانال
   CC_BANNER_ON_CONNECT: "true", // بنر تبلیغاتی هنگام وصل‌شدن هر کانال خودش هم پست شود
   CONNECTED_CHANNELS_MAX: "3", CC_PROMO_MESSAGE: "true", CC_ADVERTISE: "true",
   WELCOME_TEXT: "⚫🟡 به بات ارسال موزیک خوش آمدی. برای شروع ثبت‌نام/ورود را بزن.",
   REG_DONE_TEXT: "✅ ثبت‌نام کامل شد.",
-  FJ_ENABLED: "false",
-  FJ_TEXT: "🚸 برای استفاده از بات، ابتدا در کانال‌های زیر عضو شو و بعد «بررسی عضویت» را بزن.",
+  FJ_ENABLED: "true",
+  FJ_TEXT: "🚸 برای استفاده از بات، ابتدا در کانال profonplus عضو شو و بعد «بررسی عضویت» را بزن.",
+  REACTION_GATE_ENABLED: "true",
+  REACTION_CHANNEL_ID: "@profonplus",
+  REACTION_CHANNEL_USERNAME: "profonplus",
+  REACTION_REQUIRED_EMOJIS: "🔥,🤍",
+  REACTION_REQUIRED_POSTS: "3",
   BOT_MODE: "active", MAINTENANCE_TEXT: "🛠 بات موقتاً در حال به‌روزرسانی است. کمی بعد دوباره امتحان کن.",
   PUBLISH_MODE: "auto", PUBLISH_ENABLED: "true", PUBLISH_INTERVAL_MIN: "10",
   CHANNEL_ID: "", CHANNEL_FOOTER: "", PUBLISH_DESTINATIONS: "", BOT_USERNAME: "", DEFAULT_COVER_FILE_ID: "",
@@ -141,6 +159,7 @@ const DEFAULT_SETTINGS = {
   // در حالت admin: all = همهٔ کانال‌های مجاز، free = فقط کانال‌های رایگان، یا فهرست شناسه‌ها با کاما
   DEFAULT_PUBLISH_CHANNELS: "free",
   VIP_ENABLED: "true",
+  VIP_REMIX_DEFAULT_PRICE: "50000",
   VIP_TEMPLATE_AUTO: "false", // اگر روشن باشد، کاربر VIP روی کانال با قالب کلاسیک، قالب ویژهٔ VIP می‌گیرد
   VIP_REQUIRED_MESSAGE: "💎 برای انتشار در این کانال باید اشتراک فعال داشته باشی. از «💎 اشتراک VIP» یک پلن انتخاب کن.",
   PAYMENT_CARD_NUMBER: "6037-9975-0000-0000",
@@ -174,7 +193,7 @@ const DEFAULT_SETTINGS = {
   MAX_GENRE_TAGS: "3", MAX_POST_HASHTAGS: "12",
   POST_FREESTYLE_TEXT: "FREESTYLE 🎤",
   POST_TELEGRAM_LINK: "", POST_DOWNLOAD_BUTTON_ON_COVER: "false",
-  POST_DOWNLOAD_BUTTON_TEXT: "🎧 دریافت آهنگ کامل",
+  POST_DOWNLOAD_BUTTON_TEXT: "⬇️ دریافت ریمیکس",
   // ── برش کانال: ۳۰ ثانیه از «اوج» آهنگ ──
   // peak = پرانرژی‌ترین بازهٔ ۳۰ ثانیه‌ای (از global_gain و اندازهٔ فریم‌های MP3) · start = ۳۰ ثانیهٔ نخست
   PREVIEW_PEAK_MODE: "peak",
@@ -773,6 +792,9 @@ const MSG = {
     BTN_MY_WORKS: "📚 آثار من", BTN_MY_STATS: "📊 آمار آثار", BTN_PROFILE: "👤 پروفایل", BTN_LOGOUT: "🚪 خروج", BTN_CANCEL: "❌ لغو",
     BTN_MY_CHANNELS: "📢 کانال‌های من", BTN_PREV_STEP: "⬅️ مرحلهٔ قبل", BTN_SEARCH_WORKS: "🔍 جست‌وجوی آثار",
     BTN_VIP: "💎 اشتراک VIP", BTN_MY_LINKS: "🔗 لینک‌های من",
+    BTN_REMIXES: "🎧 آرشیو ریمیکس‌ها", BTN_REMIX_SEARCH: "🔎 جست‌وجوی ریمیکس",
+    BTN_ORDER_BEAT: "🎹 سفارش بیت", BTN_ORDER_MIX: "🎚 سفارش میکس‌ومستر", BTN_MY_ORDERS: "🧾 سفارش‌های من",
+    POST_TEMPLATE_REMIX: "🎙 قالب ریمیکس",
     // ── نسخهٔ ۰.۱۳: اشتراک، قالب‌ها و لینک هنرمند ──
     VIP_PANEL_TITLE: "💎 باشگاه اشتراک فلورا",
     VIP_STATUS_NONE: "🚫 اشتراک فعال نداری. با اشتراک می‌توانی اثرت را در همهٔ کانال‌های ویژه منتشر کنی.",
@@ -788,7 +810,7 @@ const MSG = {
     VIP_PAY_RECEIVED: "✅ رسید دریافت شد و درخواستت برای بررسی مدیر ثبت شد.",
     VIP_PAY_APPROVED: "🎉 اشتراک «{p}» فعال شد!\\n⏳ اعتبار تا {e} · 🎵 {q} ترک · 📡 {c}",
     VIP_PAY_REJECTED: "❌ درخواست اشتراکت تأیید نشد.{note}",
-    VIP_REQUIRED: "💎 این کانال مخصوص اعضای VIP است. از «💎 اشتراک VIP» یک پلن بگیر.",
+    VIP_REQUIRED: "💎 این ریمیکس مخصوص اعضای VIP است. از «💎 ریمیکس‌های VIP» یک پلن تهیه کن.",
     VIP_QUOTA_END: "⛔️ سهمیهٔ ترک این دوره ({q}) تمام شده. برای ادامه، پلن را تمدید کن.",
     VIP_BADGE_LINE: "💎 {b} — انتشار ویژه",
     CHANNEL_PICK_TITLE: "📡 این اثر در کدام کانال‌ها منتشر شود؟",
@@ -1096,6 +1118,9 @@ const MSG = {
     BTN_MY_WORKS: "📚 My works", BTN_MY_STATS: "📊 My stats", BTN_PROFILE: "👤 Profile", BTN_LOGOUT: "🚪 Log out", BTN_CANCEL: "❌ Cancel",
     BTN_MY_CHANNELS: "📢 My channels", BTN_PREV_STEP: "⬅️ Previous step", BTN_SEARCH_WORKS: "🔍 Search works",
     BTN_VIP: "💎 VIP subscription", BTN_MY_LINKS: "🔗 My links",
+    BTN_REMIXES: "🎧 Remix archive", BTN_REMIX_SEARCH: "🔎 Search remixes",
+    BTN_ORDER_BEAT: "🎹 Order a beat", BTN_ORDER_MIX: "🎚 Order mix & master", BTN_MY_ORDERS: "🧾 My orders",
+    POST_TEMPLATE_REMIX: "🎙 Remix template",
     VIP_PANEL_TITLE: "💎 Flora subscription club",
     VIP_STATUS_NONE: "🚫 No active subscription. Subscribe to publish on premium channels.",
     VIP_STATUS_ACTIVE: "✅ Active plan: {p}\\n⏳ Valid until: {e}\\n🎵 This period: {u}/{q}\\n📡 Channels: {c}",
@@ -1110,7 +1135,7 @@ const MSG = {
     VIP_PAY_RECEIVED: "✅ Receipt received and your request is pending review.",
     VIP_PAY_APPROVED: "🎉 Plan «{p}» is active!\\n⏳ Until {e} · 🎵 {q} tracks · 📡 {c}",
     VIP_PAY_REJECTED: "❌ Your subscription request was rejected.{note}",
-    VIP_REQUIRED: "💎 This channel is VIP-only. Get a plan from «💎 VIP subscription».",
+    VIP_REQUIRED: "💎 This remix is for VIP members. Get a plan from «💎 VIP remixes».",
     VIP_QUOTA_END: "⛔️ Your track quota ({q}) is used up. Renew your plan to continue.",
     VIP_BADGE_LINE: "💎 {b} — premium release",
     CHANNEL_PICK_TITLE: "📡 Which channels should this release go to?",
@@ -1504,6 +1529,7 @@ function setupProject() {
   }
   ensureMusicDownloadDefaultMigration_();
   ensureV014Settings_();
+  ensureV015RemixSchema_();
   try { getSubscriptionPlans_(); } catch (e) {}
   try { ensureLegacyDestinationsMigrated_(); } catch (e) {}
   if (!getSetting_("CLAIM_CODE")) setSetting_("CLAIM_CODE", generateClaimCode_());
@@ -1562,6 +1588,20 @@ function ensureV014Settings_() {
     });
     props.setProperty("V014_SETTINGS", "1");
   } catch (e) { console.warn("ensureV014Settings_: " + (e && e.message || e)); }
+}
+function ensureV015RemixSchema_() {
+  const sheets = [["SERVICE_ORDERS", HEADERS.ServiceOrders], ["REMIX_PURCHASES", HEADERS.RemixPurchases],
+    ["REACTION_POSTS", HEADERS.ReactionPosts], ["REACTION_STATES", HEADERS.ReactionStates]];
+  sheets.forEach(function(pair) { ensureSheet_(APP.SHEETS[pair[0]], pair[1]); });
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty("V015_REMIX_SCHEMA") === "1") return;
+  ["REACTION_GATE_ENABLED", "REACTION_CHANNEL_ID", "REACTION_CHANNEL_USERNAME", "REACTION_REQUIRED_EMOJIS", "REACTION_REQUIRED_POSTS", "VIP_REMIX_DEFAULT_PRICE"]
+    .forEach(function(key) { if (getSetting_(key) === "" && Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) setSetting_(key, DEFAULT_SETTINGS[key]); });
+  // الزام کاربر: ابتدا عضویت کانال و سپس ری‌اکشن‌ها بررسی شوند؛ مهاجرت یک‌باره روشن می‌کند.
+  setSetting_("FJ_ENABLED", "true");
+  setSetting_("REACTION_GATE_ENABLED", "true");
+  ensureDefaultRequiredChannel_();
+  props.setProperty("V015_REMIX_SCHEMA", "1");
 }
 function ensureV013Schema_() {
   try {
@@ -1625,7 +1665,7 @@ function connectWebhook() {
   PropertiesService.getScriptProperties().setProperty("WEB_APP_URL", url);
   const sec = getWebhookSecret_();
   const webhookUrl = sec ? (url + (url.indexOf("?") >= 0 ? "&" : "?") + "ws=" + encodeURIComponent(sec)) : url;
-  const payload = { url: webhookUrl, max_connections: 40, drop_pending_updates: false, allowed_updates: ["message", "callback_query", "my_chat_member"] };
+  const payload = { url: webhookUrl, max_connections: 40, drop_pending_updates: false, allowed_updates: ["message", "callback_query", "my_chat_member", "channel_post", "edited_channel_post", "message_reaction"] };
   if (sec) payload.secret_token = sec;
   const out = telegramRequest_("setWebhook", payload);
   if (out.ok) { setSetting_("READY", "true"); ui.alert("✅ وب‌هوک وصل شد. داخل ربات /claim کد را بفرست."); }
@@ -1747,6 +1787,7 @@ function setSetting_(key, value) {
   if (rowsWithKey.length) sh.getRange(rowsWithKey[rowsWithKey.length - 1], 2).setValue(text);
   else sh.appendRow([key, text]);
   bustSettingCache_();
+  if (["REACTION_CHANNEL_ID", "REACTION_CHANNEL_USERNAME"].indexOf(key) >= 0) REACTION_POSTS_MEMO_ = null;
   for (let i = rowsWithKey.length - 2; i >= 0; i--) sh.deleteRow(rowsWithKey[i]);
 }
 function deleteSetting_(key) {
@@ -2240,14 +2281,16 @@ function adminPermissionForCallback_(data) {
   if (d === "a:submissions" || d.indexOf("a:sub") === 0 || d.indexOf("a:downloadtoggle:") === 0 || d.indexOf("a:comingsoon") === 0 || d.indexOf("a:freestyle") === 0 || d.indexOf("a:delapprove:") === 0 || d.indexOf("a:delreject:") === 0) return "submissions";
   if (d === "a:support" || d.indexOf("support:") === 0) return "support";
   if (d === "a:channel" || d === "a:comments" || d === "a:postbuttons" || d === "a:covertest" || d === "set:channel" || d === "set:footer" || d === "set:mode" || d.indexOf("set:mode:") === 0 || d === "set:interval" || d === "set:pubtoggle") return "channel";
-  if (d === "a:settings" || d === "a:texts" || d.indexOf("set:") === 0 || d === "a:colors" || d.indexOf("color:") === 0 || d === "a:fj" || d.indexOf("fj:") === 0 || d === "a:inactive" || d.indexOf("set:inactive-") === 0 || d === "a:botmode" || d.indexOf("botmode:") === 0) return "settings";
+  if (d === "a:settings" || d === "a:texts" || d.indexOf("set:") === 0 || d === "a:colors" || d.indexOf("color:") === 0 || d === "a:fj" || d.indexOf("fj:") === 0 || d.indexOf("rg:") === 0 || d === "a:inactive" || d.indexOf("set:inactive-") === 0 || d === "a:botmode" || d.indexOf("botmode:") === 0) return "settings";
   if (d === "a:broadcast" || d === "a:campaigns" || d.indexOf("bc:") === 0 || d.indexOf("acc:") === 0 || d.indexOf("bn:") === 0 || d.indexOf("ccp:") === 0) return "broadcast";
-  if (d.indexOf("vipx:") === 0) return "settings";
+  if (d.indexOf("vipx:") === 0 || d.indexOf("rxpay:") === 0) return "settings";
+  if (d.indexOf("rxadm:") === 0 || d.indexOf("so:") === 0) return "submissions";
   if (d.indexOf("pch:") === 0) return "channel";
   // داشبورد ۰.۱۴: دسترسی هر دسته با بخش مربوطه سنجیده می‌شود
   if (d === "d:home" || d === "d:sea" || d === "d:set:hub" || d === "d:set:all:0" || d.indexOf("d:set:all:") === 0) return "";
   if (d === "d:set:g:pub" || d === "d:set:g:ch") return "channel";
   if (d.indexOf("d:ch:") === 0) return "channel";
+  if (d === "d:mus:vip") return "settings";
   if (d.indexOf("d:mus:") === 0) return "submissions";
   if (d.indexOf("d:usr:") === 0) return "users";
   if (d.indexOf("d:sup:") === 0) return "support";
@@ -2262,7 +2305,9 @@ function adminPermissionForState_(state, stateData) {
   if (s === "ADM_SUPPORT_REPLY") return "support";
   if (s.indexOf("ADM_BROADCAST_") === 0) return "broadcast";
   if (s.indexOf("ADM_ADMIN_") === 0) return "admins";
-  if (s === "ADM_POST_TIME" || s === "ADM_SUB_SEARCH") return "submissions";
+  if (s === "ADM_POST_TIME" || s === "ADM_SUB_SEARCH" || s === "ADM_REMIX_SEED") return "submissions";
+  if (s.indexOf("ADM_REMIX_") === 0) return "submissions";
+  if (s === "ADM_REACTION_SEED" || s === "ADM_REACTION_CHANNEL" || s === "ADM_REACTION_CONFIG") return "settings";
   // ویرایش دستی اثر (متن‌ها و رسانه‌ها) بخشی از گردش کار ارسال‌هاست
   if (s.indexOf("ADM_EDIT_") === 0) return "submissions";
   // دلیل رد بخشی از گردش کار ارسال‌هاست؛ نقش publisher هم باید بتواند رد کند.
@@ -2571,6 +2616,14 @@ function getFJChannels_() {
   const sh = getSheet_(APP.SHEETS.REQUIRED_CHANNELS); if (sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues().map(function(r, i) { return { rowNumber: i + 2, chatId: String(r[0] || ""), joinUrl: String(r[1] || ""), title: String(r[2] || ""), active: r[3] === true || String(r[3]).toLowerCase() === "true" }; }).filter(function(c) { return c.chatId; });
 }
+function ensureDefaultRequiredChannel_() {
+  const target = normalizeChannelId_(getSetting_("REACTION_CHANNEL_ID") || "@profonplus") || "@profonplus";
+  const exists = getFJChannels_().some(function(c) { return normalizeChannelId_(c.chatId) === target; });
+  if (exists) return;
+  const username = String(getSetting_("REACTION_CHANNEL_USERNAME") || "profonplus").replace(/^@/, "");
+  const joinUrl = /^@[A-Za-z]/.test(target) ? "https://t.me/" + target.slice(1) : "https://t.me/" + username;
+  getSheet_(APP.SHEETS.REQUIRED_CHANNELS).appendRow([target, joinUrl, "@" + username, "true", new Date()]);
+}
 function missingJoinChannels_(userId) {
   const channels = getFJChannels_().filter(function(c) { return c.active; }); const missing = [];
   channels.forEach(function(c) {
@@ -2595,9 +2648,8 @@ function handleJoinCallback_(cb) {
   if (passForceJoin_(uid, chatId)) {
     answerCallbackQuery_(cb.id, t_(uid, "JOIN_CONFIRMED"));
     const u = getUserById_(uid); const session = getSession_("M:" + uid);
-    if (session && session.state === "PENDING_MUSIC_DOWNLOAD" && ((session.data || {}).trackId || (session.data || {}).submissionId)) {
-      const pendingData = session.data || {}; const trackId = String(pendingData.trackId || pendingData.submissionId); clearSession_("M:" + uid); handleMusicDownloadDelivery_(chatId, uid, trackId);
-      if (pendingData.resumeState && pendingData.resumeState !== "PENDING_MUSIC_DOWNLOAD") setSession_("M:" + uid, pendingData.resumeState, pendingData.resumeData || {});
+    if (session && ["PENDING_MUSIC_DOWNLOAD", "PENDING_MUSIC_REACTION"].indexOf(session.state) >= 0 && ((session.data || {}).trackId || (session.data || {}).submissionId)) {
+      continuePendingMusicDownload_(chatId, uid, session.data || {});
       return;
     }
     if (u && isLoggedIn_(uid) && session && session.state === "PENDING_START_ACTION" && (session.data || {}).action === "admin_panel" && isAdminAuthenticated_(uid)) {
@@ -2614,12 +2666,13 @@ function handleJoinCallback_(cb) {
 function userKeyboard_(uid) {
   const lang = userLang_(uid);
   return { keyboard: [
-    [{ text: tr_("BTN_SEND_MUSIC", null, lang) }, { text: tr_("BTN_SEND_ALBUM", null, lang) }],
-    [{ text: tr_("BTN_FREESTYLE", null, lang) }, { text: tr_("BTN_COMING_SOON", null, lang) }],
+    [{ text: tr_("BTN_REMIXES", null, lang) }, { text: tr_("BTN_REMIX_SEARCH", null, lang) }],
+    [{ text: tr_("BTN_ORDER_BEAT", null, lang) }, { text: tr_("BTN_ORDER_MIX", null, lang) }],
+    [{ text: tr_("BTN_VIP", null, lang) }, { text: tr_("BTN_MY_ORDERS", null, lang) }],
     [{ text: tr_("BTN_MY_WORKS", null, lang) }, { text: tr_("BTN_MY_STATS", null, lang) }],
     [{ text: tr_("BTN_MY_CHANNELS", null, lang) }, { text: tr_("BTN_MY_LINKS", null, lang) }],
-    [{ text: tr_("BTN_VIP", null, lang) }, { text: tr_("BTN_PROFILE", null, lang) }],
-    [{ text: tr_("BTN_SUPPORT", null, lang) }, { text: tr_("BTN_LOGOUT", null, lang) }]
+    [{ text: tr_("BTN_PROFILE", null, lang) }, { text: tr_("BTN_SUPPORT", null, lang) }],
+    [{ text: tr_("BTN_LOGOUT", null, lang) }]
   ], resize_keyboard: true, is_persistent: true };
 }
 function entryKeyboard_(uid) {
@@ -2639,42 +2692,23 @@ function adminKeyboard_() {
 }
 function userMenuText_(uid) {
   const lang = userLang_(uid);
-  const u = getUserById_(uid);
-  const artistName = u ? (sanitizeArtistName_(u.rapName) || ((u.firstName + " " + u.lastName).trim()) || (lang === "en" ? "Artist" : "هنرمند")) : (lang === "en" ? "Artist" : "هنرمند");
-  let pubCount = 0, queueCount = 0, totalDl = 0;
-  try {
-    const subs = getAllSubmissions_().filter(function(s) { return String(s.userId) === String(uid); });
-    const subIds = {};
-    subs.forEach(function(s) {
-      subIds[s.id] = true;
-      if (s.status === "published") pubCount++;
-      else if (["pending", "approved", "publishing"].indexOf(s.status) >= 0) queueCount++;
-    });
-    getMusicLibrary_().forEach(function(t) {
-      if (subIds[t.submissionId]) totalDl += (Number(t.downloadCount) || 0);
-    });
-  } catch (e) {}
-  let vipLine = "";
-  let linkLine = "";
-  try {
-    const info = vipInfoFor_(uid);
-    if (info.active) vipLine = (lang === "en" ? "💎 " + ((info.plan && info.plan.name) || "VIP") + " · " + info.used + "/" + info.quota + " tracks · until " + formatDate_(info.sub.expiresAt) : "💎 اشتراک " + ((info.plan && info.plan.name) || "VIP") + " · " + info.used + "/" + info.quota + " ترک · تا " + formatDate_(info.sub.expiresAt));
-    const links = getArtistLinks_(uid);
-    if (!links.length) linkLine = lang === "en" ? "🔗 Add your platform links from «My links»." : "🔗 لینک پلتفرم‌هایت را از «🔗 لینک‌های من» اضافه کن.";
-  } catch (e) {}
-  const extra = [vipLine, linkLine].filter(Boolean).join("\n");
+  const user = getUserById_(uid);
+  const display = user ? (user.firstName || user.rapName || "") : "";
+  let remixCount = 0;
+  try { remixCount = getPublishedRemixEntries_("all").length; } catch (e) {}
+  const vipLine = isVipUser_(uid)
+    ? (lang === "en" ? "💎 VIP access is active." : "💎 دسترسی ریمیکس‌های VIP برایت فعّال است.")
+    : (lang === "en" ? "💎 Browse and purchase VIP access." : "💎 ریمیکس‌های ویژه را با پلن VIP باز کن.");
   if (lang === "en") {
-    return "🎵 FLORA MUSIC · RELEASE SYSTEM\n" +
-      "🟢 ONLINE · Welcome, «" + artistName + "» 👋\n" +
-      "💿 Published: " + pubCount + " · ⏳ Queued/Review: " + queueCount + " · ⬇️ Downloads: " + totalDl + "\n" +
-      (extra ? extra + "\n" : "") + "\n" +
-      tr_("MENU_TITLE", null, lang) + "\n\n" + tr_("USER_MENU_HINT", null, lang);
+    return "🎧 REMIX PAASHAA · REMIX ARCHIVE\n" +
+      "🟢 Welcome" + (display ? ", " + display : "") + " 👋\n" +
+      "🎵 Published remixes: " + remixCount + "\n" + vipLine +
+      "\n\nBrowse and download releases, order a beat, or request mix & master.";
   }
-  return "🎵 FLORA MUSIC · سیستم انتشار موسیقی\n" +
-    "🟢 ONLINE · خوش آمدی، «" + artistName + "» 👋\n" +
-    "💿 منتشرشده: " + pubCount + " · ⏳ در صف/بررسی: " + queueCount + " · ⬇️ دانلود کل: " + totalDl + "\n" +
-    (extra ? extra + "\n" : "") + "\n" +
-    tr_("MENU_TITLE", null, lang) + "\n\n" + tr_("USER_MENU_HINT", null, lang);
+  return "🎧 ریمیکس پاشا · آرشیو ریمیکس\n" +
+    "🟢 خوش آمدی" + (display ? "، «" + display + "»" : "") + " 👋\n" +
+    "🎵 ریمیکس‌های منتشرشده: " + remixCount + "\n" + vipLine +
+    "\n\nاز منو ریمیکس بگیر، سفارش بیت بده یا درخواست میکس‌ومستر ثبت کن.";
 }
 function sendEntryCard_(chatId, prefix) {
   const uid = String(chatId);
@@ -2684,7 +2718,6 @@ function sendEntryCard_(chatId, prefix) {
 function showUserMenu_(chatId, prefix) {
   const uid = String(chatId);
   sendMessage_(chatId, (prefix ? prefix + "\n\n" : "") + userMenuText_(uid), userKeyboard_(uid));
-  try { maybePromptArtistLinks_(chatId, uid); } catch (e) {}
 }
 // برای هر هنرمند (تازه‌وارد یا قدیمی) یک‌بار درخواست ثبت لینک‌های پلتفرم می‌شود.
 function maybePromptArtistLinks_(chatId, uid) {
@@ -2744,6 +2777,7 @@ function doPost(e) {
   try { ensureMusicDownloadDefaultMigration_(); } catch (migrationError) { console.error("Music download default migration: " + migrationError); }
   try { ensureV013Schema_(); } catch (schemaError) { console.error("Schema 0.13: " + schemaError); }
   try { ensureV014Settings_(); } catch (settingsError) { console.error("Settings 0.14: " + settingsError); }
+  try { ensureV015RemixSchema_(); } catch (remixSchemaError) { console.error("Remix schema 0.15: " + remixSchemaError); }
   try {
     if (!e || !e.postData || !e.postData.contents) return HtmlService.createHtmlOutput("OK");
     if (e.parameter && e.parameter.ws) {
@@ -2757,6 +2791,9 @@ function doPost(e) {
     // قفل فقط برای پیام‌هایی که رسانهٔ پیش‌نویس اضافه می‌کنند؛ بقیه بدون قفل رد می‌شوند.
     if (update.callback_query) handleCallbackQuery_(update.callback_query);
     else if (update.message) handleMessage_(update.message);
+    else if (update.message_reaction) handleMessageReactionUpdate_(update.message_reaction);
+    else if (update.channel_post) handleChannelPostUpdate_(update.channel_post);
+    else if (update.edited_channel_post) handleChannelPostUpdate_(update.edited_channel_post);
     else if (update.my_chat_member) handleMyChatMember_(update.my_chat_member);
   } catch (e2) {
     console.error(redactSecrets_(e2 && e2.stack ? e2.stack : e2));
@@ -2833,7 +2870,7 @@ function handleMessage_(message) {
   if (isLanguageCommand_(text)) { showLanguagePicker_(chatId, uid); return; }
   const startCommand = text.match(/^\/start(?:@[A-Za-z0-9_]+)?(?:\s+([A-Za-z0-9_.-]{1,120}))?$/i);
   if (startCommand) {
-    const downloadStart = String(startCommand[1] || "").match(/^download_([A-Za-z0-9_.-]{1,120})$/i);
+    const downloadStart = String(startCommand[1] || "").match(/^(?:download|get)_([A-Za-z0-9_.-]{1,120})$/i);
     if (downloadStart) { beginMusicDownloadFromDeepLink_(message, downloadStart[1]); return; }
     if (!getSetting_("ADMIN_IDS") && !isAdmin_(uid)) { sendMessage_(chatId, t_(uid, "NOT_SETUP")); return; }
     if (isAdmin_(uid)) { adminEntry_(chatId, uid); return; }
@@ -2932,11 +2969,24 @@ function handleMessage_(message) {
     if (u.blocked || !u.active) { sendMessage_(chatId, t_(uid, u.blocked ? "ACCOUNT_BLOCKED" : "ACCOUNT_INACTIVE")); return; }
     handleVipPaymentInput_(message, session); return;
   }
-  if (session && String(session.state).indexOf("MUSIC_") === 0) {
-    if (!loggedIn) { cancelMusicDraft_(uid, session); sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED")); return; }
+  if (session && session.state === "VIP_REMIX_PAY") {
+    if (!loggedIn) { clearSession_("M:" + uid); sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED")); return; }
     if (u.blocked || !u.active) { sendMessage_(chatId, t_(uid, u.blocked ? "ACCOUNT_BLOCKED" : "ACCOUNT_INACTIVE")); return; }
-    if (!["active", ""].includes(String(getSetting_("BOT_MODE") || "active"))) { sendMessage_(chatId, niceText_("MAINTENANCE_TEXT", null, userLang_(uid))); return; }
-    touchUser_(uid); if (!passForceJoin_(uid, chatId)) return; handleMusicMessage_(message, session); return;
+    handleRemixPurchaseInput_(message, session); return;
+  }
+  if (session && session.state === "RX_SEARCH") {
+    if (!loggedIn) { clearSession_("M:" + uid); sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED")); return; }
+    clearSession_("M:" + uid); showRemixCatalog_(chatId, uid, "all", text, 0); return;
+  }
+  if (session && session.state === "ORDER_DETAILS") {
+    if (!loggedIn) { clearSession_("M:" + uid); sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED")); return; }
+    if (u.blocked || !u.active) { sendMessage_(chatId, t_(uid, u.blocked ? "ACCOUNT_BLOCKED" : "ACCOUNT_INACTIVE")); return; }
+    handleServiceOrderInput_(message, session); return;
+  }
+  if (session && String(session.state).indexOf("MUSIC_") === 0) {
+    cancelMusicDraft_(uid, session);
+    sendMessage_(chatId, "⛔️ ارسال موزیک توسط کاربران غیرفعال است؛ فقط مدیر می‌تواند ریمیکس منتشر کند.", userKeyboard_(uid));
+    return;
   }
   if (text === "🟡 ثبت‌نام / ورود" || text === "🟡 ثبت‌نام" || text === "🔑 ورود" || text === MSG.en.BTN_REGISTER) { startAuthFlow_(message); return; }
   if (text === "🆘 فراموشی رمز" || text === MSG.en.BTN_FORGOT) { startForgotFlow_(message); return; }
@@ -2970,20 +3020,14 @@ function isAdminMenuButtonText_(text) {
 function isUserMenuButtonText_(text) {
   const t = String(text || "").trim();
   if (!t) return false;
-  return [
-    tr_("BTN_SEND_MUSIC", null, "fa"), MSG.en.BTN_SEND_MUSIC,
-    tr_("BTN_SEND_ALBUM", null, "fa"), MSG.en.BTN_SEND_ALBUM,
-    tr_("BTN_COMING_SOON", null, "fa"), MSG.en.BTN_COMING_SOON,
-    tr_("BTN_FREESTYLE", null, "fa"), MSG.en.BTN_FREESTYLE, "🎤 فری‌استایل",
-    tr_("BTN_MY_WORKS", null, "fa"), MSG.en.BTN_MY_WORKS,
-    tr_("BTN_MY_STATS", null, "fa"), MSG.en.BTN_MY_STATS, "📊 آمار آثار", "📊 My stats",
-    tr_("BTN_MY_CHANNELS", null, "fa"), MSG.en.BTN_MY_CHANNELS,
-    tr_("BTN_MY_LINKS", null, "fa"), MSG.en.BTN_MY_LINKS, "🔗 لینک‌های من",
-    tr_("BTN_VIP", null, "fa"), MSG.en.BTN_VIP, "💎 اشتراک VIP",
-    tr_("BTN_PROFILE", null, "fa"), MSG.en.BTN_PROFILE,
-    tr_("BTN_SUPPORT", null, "fa"), MSG.en.BTN_SUPPORT, "📞 پشتیبانی",
-    tr_("BTN_LOGOUT", null, "fa"), MSG.en.BTN_LOGOUT
-  ].indexOf(t) >= 0;
+  const keys = ["BTN_REMIXES", "BTN_REMIX_SEARCH", "BTN_ORDER_BEAT", "BTN_ORDER_MIX", "BTN_MY_ORDERS", "BTN_VIP", "BTN_PROFILE", "BTN_SUPPORT", "BTN_LOGOUT"];
+  const labels = [];
+  keys.forEach(function(key) { labels.push(tr_(key, null, "fa"), tr_(key, null, "en")); });
+  labels.push(MSG.fa.BTN_SEND_MUSIC, MSG.en.BTN_SEND_MUSIC, MSG.fa.BTN_SEND_ALBUM, MSG.en.BTN_SEND_ALBUM,
+    MSG.fa.BTN_COMING_SOON, MSG.en.BTN_COMING_SOON, MSG.fa.BTN_FREESTYLE, MSG.en.BTN_FREESTYLE,
+    MSG.fa.BTN_MY_WORKS, MSG.en.BTN_MY_WORKS, MSG.fa.BTN_MY_STATS, MSG.en.BTN_MY_STATS,
+    MSG.fa.BTN_MY_CHANNELS, MSG.en.BTN_MY_CHANNELS, MSG.fa.BTN_MY_LINKS, MSG.en.BTN_MY_LINKS);
+  return labels.indexOf(t) >= 0;
 }
 function adminEntry_(chatId, uid) {
   if (!isAdminAuthenticated_(uid)) { requireAdminAuthentication_(chatId, uid); return; }
@@ -3008,6 +3052,9 @@ function handleCallbackQuery_(cb) {
 }
 function dispatchCallbackQuery_(cb, uid, data, chatId) {
   if (data === "fj:check") { handleJoinCallback_(cb); return; }
+  if (data === "rg:check") { handleReactionCallback_(cb); return; }
+  if (data === "so:mine" || data.indexOf("so:user:") === 0) { handleUserServiceOrderCallback_(cb); return; }
+  if (data.indexOf("rx:") === 0) { handleRemixCatalogCallback_(cb); return; }
   if (data.indexOf("lg:") === 0) {
     const lang = data.split(":")[1] || "fa";
     if (!setLanguage_(uid, lang)) { answerCallbackQuery_(cb.id, t_(uid, "NO_ACCESS_BTN")); return; }
@@ -3028,7 +3075,7 @@ function dispatchCallbackQuery_(cb, uid, data, chatId) {
   if (data.indexOf("vip:") === 0) { handleVipUserCallback_(cb); return; }
   if (data.indexOf("sdel:") === 0) { handleAccountDeleteCallback_(cb); return; }
   // توجه: «cb:» هم باید اینجا باشد، وگرنه دکمه‌های تنظیمات پست به هندلر مدیر نمی‌رسند.
-  if (/^(a|u|sub|set|fj|color|botmode|bc|r|support|cb|acc|bn|ccp|vipx|pch|d):/.test(data)) {
+  if (/^(a|u|sub|set|fj|rg|so|rxadm|rxpay|color|botmode|bc|r|support|cb|acc|bn|ccp|vipx|pch|d):/.test(data)) {
     if (!isAdmin_(uid)) { answerCallbackQuery_(cb.id, t_(uid, "NO_ACCESS_BTN")); return; }
     if (!isAdminAuthenticated_(uid)) { answerCallbackQuery_(cb.id, t_(uid, "ADMIN_AUTH_NEEDED")); requireAdminAuthentication_(chatId, uid); return; }
     if (isAdminSessionStale_(uid)) { logoutUser_(uid); answerCallbackQuery_(cb.id, t_(uid, "ADMIN_SESSION_EXPIRED")); requireAdminAuthentication_(chatId, uid, t_(uid, "ADMIN_SESSION_EXPIRED")); return; }
@@ -3076,10 +3123,8 @@ function beginMusicDownloadFromDeepLink_(message, param) {
     if (own && String(own.userId) === uid && own.status !== "published") { sendMessage_(chatId, t_(uid, "DOWNLOAD_DISABLED") + "\n" + t_(uid, "MY_WORK_OFFLINE_NOTE")); return; }
     sendMessage_(chatId, t_(uid, "DOWNLOAD_DISABLED")); return;
   }
-  if (!rateAllow_("dl:" + uid, getSetting_("RATE_DOWNLOADS_PER_HOUR") || 10, 3600)) { sendMessage_(chatId, t_(uid, "RATE_LIMITED")); return; }
   const previousSession = getSession_("M:" + uid);
-  if (!passForceJoin_(uid, chatId)) { setSession_("M:" + uid, "PENDING_MUSIC_DOWNLOAD", { trackId: track.trackId, resumeState: previousSession && previousSession.state, resumeData: previousSession && previousSession.data }); return; }
-  handleMusicDownloadDelivery_(chatId, uid, track.trackId);
+  requestMusicDownload_(chatId, uid, track.trackId, previousSession);
 }
 function startAuthFlow_(message) {
   const uid = String(message.from.id); const chatId = String(message.chat.id); const pendingAction = pendingStartAction_(uid);
@@ -3959,33 +4004,27 @@ function showArtistStatsForUser_(chatId, uid, editMsgId) {
 
 function handleUserMenuMessage_(message, user) {
   const uid = String(message.from.id); const chatId = String(message.chat.id); const text = String(message.text || "").trim();
-  const session = getSession_("M:" + uid);
-  if (session && String(session.state).indexOf("PERS_") === 0) { handleProfileState_(message, session); return; }
-  if (session && session.state === "USR_SEARCH_WORKS") {
-    clearSession_("M:" + uid);
-    showUserWorksSearch_(chatId, uid, text);
-    return;
-  }
   const lang = userLang_(uid);
-  // حالت «اجباری»: تا وقتی بات در کانال کاربر ادمین نشده، ارسال اثر و «آثار من» قفل است.
-  const gated = ccGateRequired_(uid);
-  if (gated && (text === tr_("BTN_SEND_MUSIC", null, "fa") || text === MSG.en.BTN_SEND_MUSIC ||
-                text === tr_("BTN_SEND_ALBUM", null, "fa") || text === MSG.en.BTN_SEND_ALBUM ||
-                text === tr_("BTN_COMING_SOON", null, "fa") || text === MSG.en.BTN_COMING_SOON ||
-                text === tr_("BTN_FREESTYLE", null, "fa") || text === MSG.en.BTN_FREESTYLE || text === "🎤 فری‌استایل")) { showConnectedGate_(chatId, uid); return; }
-  if (gated && (text === tr_("BTN_MY_WORKS", null, "fa") || text === MSG.en.BTN_MY_WORKS)) { showConnectedGate_(chatId, uid); return; }
-  if (text === tr_("BTN_MY_LINKS", null, "fa") || text === MSG.en.BTN_MY_LINKS || text === "🔗 لینک‌های من") { showArtistLinksPanel_(chatId, uid); return; }
-  if (text === tr_("BTN_VIP", null, "fa") || text === MSG.en.BTN_VIP || text === "💎 اشتراک VIP") { showVipPanel_(chatId, uid); return; }
-  if (text === tr_("BTN_MY_CHANNELS", null, "fa") || text === MSG.en.BTN_MY_CHANNELS) { showMyChannels_(chatId, uid); return; }
-  if (text === tr_("BTN_MY_STATS", null, "fa") || text === MSG.en.BTN_MY_STATS || text === "📊 آمار آثار" || text === "📊 My stats") { showArtistStatsForUser_(chatId, uid); return; }
-  if (text === tr_("BTN_SEND_MUSIC", null, "fa") || text === MSG.en.BTN_SEND_MUSIC) { startMusicFlow_(chatId, uid, "simple"); return; }
-  if (text === tr_("BTN_SEND_ALBUM", null, "fa") || text === MSG.en.BTN_SEND_ALBUM) { startMusicFlow_(chatId, uid, "album"); return; }
-  if (text === tr_("BTN_COMING_SOON", null, "fa") || text === MSG.en.BTN_COMING_SOON) { startMusicFlow_(chatId, uid, "coming_soon"); return; }
-  if (text === tr_("BTN_FREESTYLE", null, "fa") || text === MSG.en.BTN_FREESTYLE || text === "🎤 فری‌استایل") { startMusicFlow_(chatId, uid, "freestyle"); return; }
-  if (text === tr_("BTN_MY_WORKS", null, "fa") || text === MSG.en.BTN_MY_WORKS) { showMyMusic_(chatId, uid, 0); return; }
-  if (text === tr_("BTN_PROFILE", null, "fa") || text === MSG.en.BTN_PROFILE) { showProfile_(chatId, uid, user); return; }
-  if (text === tr_("BTN_LOGOUT", null, "fa") || text === MSG.en.BTN_LOGOUT) { logoutUser_(uid); clearSession_("M:" + uid); sendEntryCard_(chatId, t_(uid, "LOGGED_OUT")); return; }
-  if (text === tr_("BTN_SUPPORT", null, "fa") || text === MSG.en.BTN_SUPPORT || text === "📞 پشتیبانی") { startUserSupport_(chatId, uid); return; }
+  const session = getSession_("M:" + uid);
+  if (session && session.state === "USR_SEARCH_WORKS") { clearSession_("M:" + uid); showUserWorksSearch_(chatId, uid, text); return; }
+  const isButton = function(key) { return text === tr_(key, null, "fa") || text === tr_(key, null, "en"); };
+  if (text === tr_("BTN_REMIXES", null, "fa") || text === tr_("BTN_REMIXES", null, "en")) { showRemixCatalog_(chatId, uid, "all", "", 0); return; }
+  if (isButton("BTN_REMIX_SEARCH")) { setSession_("M:" + uid, "RX_SEARCH", {}); sendMessage_(chatId, "🔎 نام ریمیکس یا هنرمند را بفرست:", cancelKeyboard_()); return; }
+  if (isButton("BTN_ORDER_BEAT")) { startServiceOrder_(chatId, uid, "beat"); return; }
+  if (isButton("BTN_ORDER_MIX")) { startServiceOrder_(chatId, uid, "mix_master"); return; }
+  if (isButton("BTN_MY_ORDERS")) { showUserServiceOrders_(chatId, uid); return; }
+  if (isButton("BTN_MY_WORKS")) { showMyMusic_(chatId, uid, 0); return; }
+  if (isButton("BTN_MY_STATS")) { showArtistStatsForUser_(chatId, uid); return; }
+  if (isButton("BTN_MY_CHANNELS")) { showMyChannels_(chatId, uid); return; }
+  if (isButton("BTN_MY_LINKS")) { showArtistLinksPanel_(chatId, uid); return; }
+  if (isButton("BTN_VIP") || text === "💎 اشتراک VIP") { showVipPanel_(chatId, uid); return; }
+  if (isButton("BTN_PROFILE")) { showProfile_(chatId, uid, user); return; }
+  if (isButton("BTN_LOGOUT")) { logoutUser_(uid); clearSession_("M:" + uid); sendEntryCard_(chatId, t_(uid, "LOGGED_OUT")); return; }
+  if (isButton("BTN_SUPPORT")) { startUserSupport_(chatId, uid); return; }
+  if ([MSG.fa.BTN_SEND_MUSIC, MSG.en.BTN_SEND_MUSIC, MSG.fa.BTN_SEND_ALBUM, MSG.en.BTN_SEND_ALBUM,
+       MSG.fa.BTN_COMING_SOON, MSG.en.BTN_COMING_SOON, MSG.fa.BTN_FREESTYLE, MSG.en.BTN_FREESTYLE].indexOf(text) >= 0) {
+    sendMessage_(chatId, "⛔️ ارسال و انتشار ریمیکس فقط از پنل مدیر انجام می‌شود.", userKeyboard_(uid)); return;
+  }
   showUserMenu_(chatId, lang === "en" ? "" : "");
 }
 // ───────────────────────── کانال‌های وصل‌شده (سمت کاربر / هنرمند) ─────────────────────────
@@ -4840,7 +4879,7 @@ function audioStepPrompt_(uid, draft) {
 }
 function getMaxAudioMb_() { return Math.max(1, Math.min(200, Number(getSetting_("MAX_AUDIO_MB") || 50))); }
 function startMusicFlow_(chatId, uid, mode) {
-  if (ccGateRequired_(uid)) { showConnectedGate_(chatId, uid); return; }
+  if (!isAdmin_(uid)) { sendMessage_(chatId, "⛔️ ارسال موزیک عمومی غیرفعال است؛ انتشار ریمیکس فقط در اختیار مدیر است."); return; }
   const user = getUserById_(uid);
   if (!user && !isAdmin_(uid)) { sendEntryCard_(chatId); return; }
   const active = getSession_("M:" + uid);
@@ -6427,7 +6466,7 @@ function markFloorTrack_(trackId, enable) {
 function downloadDeepLink_(param) {
   const username = getBotUsername_();
   if (!username || !param) return "";
-  return "https://t.me/" + username + "?start=download_" + downloadStartParam_(param);
+  return "https://t.me/" + username + "?start=get_" + downloadStartParam_(param);
 }
 // مارک‌آپ پست صوتی: دکمهٔ شیشه‌ای دانلود + دکمهٔ تبلیغ کانال هنرمند (در صورت اتصال)
 function audioPostMarkup_(submission, trackId) {
@@ -6438,9 +6477,9 @@ function audioPostMarkup_(submission, trackId) {
   if (ccRow) rows.push(ccRow);
   return rows.length ? { inline_keyboard: rows } : null;
 }
-function downloadButtonMarkup_(submission, trackId) {
+function downloadButtonMarkup_(submission, trackId, buttonTextOverride) {
   const sub = submission || {};
-  const buttonText = String(getSetting_("POST_DOWNLOAD_BUTTON_TEXT") || "⬇️ دانلود آهنگ");
+  const buttonText = String(buttonTextOverride || getSetting_("POST_DOWNLOAD_BUTTON_TEXT") || "⬇️ دریافت ریمیکس");
   const track = trackId ? getMusicLibraryTrack_(trackId) : null;
   let target = trackId || "";
   if (track) { if (!track.downloadAllowed || !track.fileId) return null; }
@@ -6891,6 +6930,8 @@ function publishOneSubmission_(sub) {
         publishReleaseToChannel_(sub, ch, stage, ctx);
         const ids = [].concat(stage.channels[ch.id].visualMessageIds || [], stage.channels[ch.id].audioMessageIds || []);
         upsertSubmissionChannelRecord_(sub, ch, { status: "published", template: ch.template, access: ch.access, message_ids: ids.join("|"), error: "" });
+        try { registerPublishedReactionPosts_(sub, ch, stage.channels[ch.id]); }
+        catch (reactionError) { logError_("registerPublishedReactionPosts_", reactionError, { submissionId: sub.id, channelId: ch.id }); }
       } catch (e) {
         const msg = String(e && e.message || e);
         stage.channels[ch.id] = stage.channels[ch.id] || {};
@@ -8526,8 +8567,12 @@ function showFJPanel_(chatId, uid) {
   const channels = getFJChannels_();
   const rows = channels.map(function(c) { return [{ text: (c.active ? "✅ " : "⛔ ") + truncate_(c.title || c.chatId, 24), callback_data: "fj:toggle:" + c.rowNumber }, { text: "🗑", callback_data: "fj:del:" + c.rowNumber }]; });
   rows.push([{ text: (getSetting_("FJ_ENABLED") === "true" ? "🔴 خاموش‌کردن" : "🟢 روشن‌کردن") + " عضویت اجباری", callback_data: "fj:enabled:" + (getSetting_("FJ_ENABLED") === "true" ? "false" : "true") }]);
-  rows.push([{ text: "➕ افزودن کانال", callback_data: "fj:add" }, { text: "🏠 منو", callback_data: "d:home" }]);
-  sendMessage_(chatId, "🌐 عضویت اجباری: " + (getSetting_("FJ_ENABLED") === "true" ? "روشن" : "خاموش") + "\nکانال‌ها: " + channels.length + "\n\n⚠️ ربات باید در هر کانال ادمین باشد تا عضویت را بررسی کند.", { inline_keyboard: rows });
+  rows.push([{ text: (getSetting_("REACTION_GATE_ENABLED") === "true" ? "🔴 خاموش‌کردن" : "🟢 روشن‌کردن") + " ری‌اکشن اجباری", callback_data: "rg:toggle" }]);
+  rows.push([{ text: "📌 ثبت " + (getSetting_("REACTION_REQUIRED_POSTS") || "3") + " پست اولیهٔ کانال", callback_data: "rg:seed" }, { text: "📡 تنظیم کانال واکنش", callback_data: "rg:channel" }]);
+  rows.push([{ text: "⚙️ تنظیم ایموجی/تعداد پست", callback_data: "rg:config" }]);
+  rows.push([{ text: "➕ افزودن کانال عضویت", callback_data: "fj:add" }, { text: "🏠 منو", callback_data: "d:home" }]);
+  const target = reactionTargetChannel_();
+  sendMessage_(chatId, "🌐 عضویت اجباری: " + (getSetting_("FJ_ENABLED") === "true" ? "روشن" : "خاموش") + "\n🔥 ری‌اکشن اجباری: " + (getSetting_("REACTION_GATE_ENABLED") === "true" ? "روشن" : "خاموش") + "\n📡 کانال ری‌اکشن: " + target + "\n✅ شرط فعلی: " + (getSetting_("REACTION_REQUIRED_EMOJIS") || "🔥,🤍") + " روی " + (getSetting_("REACTION_REQUIRED_POSTS") || "3") + " پست آخر\n\n⚠️ بات باید در کانال هدف ادمین باشد و وب‌هوک پس از فعال‌سازی دوباره وصل شود تا رویداد واکنش‌ها دریافت شود. برای کانال خصوصی، لینک عضویت را هم به فهرست عضویت اجباری اضافه کن.", { inline_keyboard: rows });
 }
 function showInactivePanel_(chatId, uid) {
   if (!adminGate_(chatId, uid, "settings")) return;
@@ -8551,6 +8596,10 @@ function handleAdminCallback_(cb) {
   if (parts[0] === "vipx") { handleAdminVipCallback_(cb); return; }
   if (parts[0] === "d") { handleDashboardCallback_(cb); return; }
   if (parts[0] === "pch") { handlePublishChannelCallback_(cb); return; }
+  if (parts[0] === "rg") { handleReactionAdminCallback_(cb); return; }
+  if (parts[0] === "so") { handleServiceOrderCallback_(cb); return; }
+  if (parts[0] === "rxadm") { handleAdminRemixCallback_(cb); return; }
+  if (parts[0] === "rxpay") { handleAdminRemixPurchaseCallback_(cb); return; }
   const p0 = parts[0];
   try {
     if (data === "a:home") { clearSession_("M:" + uid); answerCallbackQuery_(cb.id); showAdminMenu_(chatId); return; }
@@ -9237,7 +9286,13 @@ function handleMusicCallback_(cb) {
   const parts = data.split(":");
   // دکمهٔ دانلود در «آثار من» به هیچ پیش‌نویسی مربوط نیست؛ باید قبل از جست‌وجوی پیش‌نویس رسیدگی شود،
   // وگرنه همیشه پیام «پیش‌نویس منقضی شده» می‌گرفت.
-  if (parts[1] === "dl") { answerCallbackQuery_(cb.id); handleMusicDownloadDelivery_(chatId, uid, parts[2] || ""); return; }
+  if (parts[1] === "dl") {
+    answerCallbackQuery_(cb.id);
+    if (isAdmin_(uid)) handleMusicDownloadDelivery_(chatId, uid, parts[2] || "");
+    else requestMusicDownload_(chatId, uid, parts[2] || "", getSession_("M:" + uid));
+    return;
+  }
+  if (!isAdmin_(uid)) { answerCallbackQuery_(cb.id, "ارسال موزیک کاربران غیرفعال است؛ آرشیو ریمیکس‌ها را باز کن."); return; }
   const session = getSession_("M:" + uid);
   const draftId = (session && session.data || {}).draftId || parts[2] || "";
   const draft = getMusicDraft_(draftId);
@@ -9469,6 +9524,10 @@ function handleAdminState_(message, session) {
   const requiredPermission = adminPermissionForState_(state, data);
   if (requiredPermission && !hasAdminPermission_(uid, requiredPermission)) { clearSession_("M:" + uid); sendMessage_(chatId, "⛔ نقش تو اجازهٔ این کار را ندارد.", adminKeyboard_()); return; }
   const finish = function(reply) { clearSession_("M:" + uid); showAdminMenu_(chatId, reply); };
+  if (state.indexOf("ADM_REMIX_") === 0) { handleAdminRemixMessage_(message, session); return; }
+  if (state === "ADM_REACTION_SEED") { handleReactionSeedInput_(message, session); return; }
+  if (state === "ADM_REACTION_CHANNEL") { handleReactionChannelInput_(message, session); return; }
+  if (state === "ADM_REACTION_CONFIG") { handleReactionConfigInput_(message, session); return; }
 
   // ── ۰.۱۳: اشتراک VIP ──
   if (state === "ADM_VIP_PLAN_NEW") {
@@ -11325,6 +11384,10 @@ const POST_TEMPLATES_ = {
   vip: {
     key: "vip", cover: true, audio: "preview", downloadOnCover: true, linkButtons: true, premium: true,
     labelKey: "POST_TEMPLATE_VIP", desc: "قالب ویژهٔ VIP: کاور + ایموجی/نشان پریمیوم + لینک هنرمند + برش صوتی"
+  },
+  remix: {
+    key: "remix", cover: true, audio: "preview", downloadOnCover: false, linkButtons: false,
+    labelKey: "POST_TEMPLATE_REMIX", desc: "قالب انتشار ریمیکس: کاور داستان‌دار + دمو + کد ریمیکس و دکمهٔ دریافت"
   }
 };
 function postTemplateKeys_() { return Object.keys(POST_TEMPLATES_); }
@@ -11664,6 +11727,14 @@ function resolveSubmissionChannels_(sub) {
     const free = all.filter(function(c) { return c.access === "free"; });
     picked = free.length ? [free[0]] : [];
   }
+  const details = (sub && sub.request && sub.request.details) || {};
+  const templateOverrides = Array.isArray(details.channelTemplates) ? details.channelTemplates : [];
+  if (templateOverrides.length) {
+    picked = picked.map(function(ch) {
+      const override = templateOverrides.find(function(x) { return x && (String(x.id) === String(ch.id) || String(x.id) === String(ch.chatId)); });
+      return override && override.template ? Object.assign({}, ch, { template: normalizeTemplateKey_(override.template) }) : ch;
+    });
+  }
   return picked;
 }
 function channelEntitlementError_(userId, channels) {
@@ -11856,7 +11927,12 @@ function templateFooterBlocks_(sub, ch, opts) {
   if (/^\s*(\[t\.me\]\(http:\/\/t\.me\)|https?:\/\/t\.me\/?|t\.me)\s*$/i.test(footer)) footer = "";
   if (/Telegram\s*·\s*@/i.test(footer) && /t\.me/i.test(footer)) footer = "";
   const target = channelTelegramTarget_(ch);
-  if (target) blocks.push("🔵 " + linkHtml_(target.url, target.label));
+  if (normalizeTemplateKey_(o.template || (ch && ch.template)) === "remix") {
+    if (target) {
+      const username = String(ch && ch.username || "").replace(/^@/, "") || (target.label.match(/@([A-Za-z0-9_]+)/) || [])[1] || "";
+      blocks.push("⚡️ Ex on : " + linkHtml_(target.url, username ? "@" + username : target.label));
+    }
+  } else if (target) blocks.push("🔵 " + linkHtml_(target.url, target.label));
   if (footer) blocks.push(o.plainFooter ? footer : htmlEscape_(footer));
   return blocks;
 }
@@ -11878,10 +11954,18 @@ function buildTemplateCaption_(submission, channel, options) {
     return buildPostCaption_(sub, { channel: ch, compact: opts.compact });
   }
 
-  if (tplKey === "vip") {
+  if (tplKey === "remix") {
+    const details = (sub.request && sub.request.details) || {};
+    blocks.push("🎵 ریمیکس جدید بنام «" + htmlEscape_(titleRaw) + "» منتشر شد! 🖤");
+    if (artistLine) blocks.push("➡️ Remix by : " + htmlEscape_(artistLine));
+    if (details.remixCode) blocks.push("🔠 <b>کد ریمیکس: " + htmlEscape_(details.remixCode) + "</b>");
+    if (custom) blocks.push("📖 " + htmlEscape_(custom).replace(/\r?\n/g, "\n"));
+    if (details.vipOnly) blocks.push("💎 این ریمیکس ویژهٔ اعضای VIP است.");
+    blocks.push("🔵 حمایت فراموش نشه رفقا..");
+  } else if (tplKey === "vip") {
     const badge = String(getSetting_("POST_VIP_BADGE") || "💎 VIP");
     blocks.push("━━━━━━━━ " + badge + " ━━━━━━━━");
-    blocks.push("💎 " + htmlEscape_(String(getSetting_("BRAND_NAME") || "فلورا بات")) + " · انتشار ویژه");
+    blocks.push("💎 " + htmlEscape_(String(getSetting_("BRAND_NAME") || "Remix PaaShaa")) + " · انتشار ویژه");
     if (artistLine) blocks.push("🌟 " + artistLine);
     blocks.push("👑 <blockquote>" + htmlEscape_(title) + " " + titleEmoji + "\n" + htmlEscape_(templateOutNowText_(sub)) + "</blockquote>");
     if (custom) blocks.push("📖 " + htmlEscape_(custom).replace(/\r?\n/g, "\n"));
@@ -11948,7 +12032,7 @@ function buildTemplateAudioCaption_(sub, ch, templateKey, trackTitle, index) {
 function templateDownloadMarkup_(sub, ch, templateKey, trackId) {
   const tplKey = normalizeTemplateKey_(templateKey);
   const rows = [];
-  const dl = downloadButtonMarkup_(sub, trackId || "");
+  const dl = downloadButtonMarkup_(sub, trackId || "", tplKey === "remix" ? "⬇️ دریافت ریمیکس" : "");
   if (dl) dl.inline_keyboard.forEach(function(r) { rows.push(r); });
   if (tplKey === "vip" || tplKey === "story") {
     const links = (sub.links || []).filter(function(l) { return l && l.url && (sub.platformVisible || {})[l.platform] !== false; }).slice(0, 4);
@@ -12863,12 +12947,18 @@ function showAdminMusicHub_(chatId, uid, msgId) {
     "⏳ Coming Soon: " + dashSubmissionsByFilter_("coming").length + " · 🎤 فری‌استایل: " + dashSubmissionsByFilter_("freestyle").length
   ].join("\n");
   const rows = [
+    [{ text: "➕ انتشار ریمیکس جدید", callback_data: "d:mus:new" }],
+    [{ text: "🧾 سفارش‌های بیت/میکس", callback_data: "d:mus:orders" }],
     [{ text: "⏳ منتظر تأیید" + (count("pending") ? " (" + count("pending") + ")" : ""), callback_data: "d:mus:list:pending:0" }, { text: "🗓 صف انتشار", callback_data: "d:mus:list:queue:0" }],
     [{ text: "🆕 ارسال‌های جدید", callback_data: "d:mus:list:new:0" }, { text: "✅ منتشرشده", callback_data: "d:mus:list:published:0" }],
     [{ text: "⚠️ ناموفق" + (failed ? " (" + failed + ")" : ""), callback_data: "d:mus:list:failed:0" }, { text: "❌ ردشده", callback_data: "d:mus:list:rejected:0" }],
     [{ text: "⏳ Coming Soon", callback_data: "d:mus:list:coming:0" }, { text: "🎤 فری‌استایل‌ها", callback_data: "d:mus:list:freestyle:0" }],
     [{ text: "📚 همهٔ ارسال‌ها", callback_data: "d:mus:list:all:0" }]
   ];
+  if (hasAdminPermission_(uid, "settings")) {
+    const pendingRemixBuys = getRemixPurchases_().filter(function(purchase) { return purchase.status === "pending"; }).length;
+    rows.splice(2, 0, [{ text: "💳 خریدهای ریمیکس VIP" + (pendingRemixBuys ? " (" + pendingRemixBuys + ")" : ""), callback_data: "d:vip:remixes" }]);
+  }
   if (count("pending")) rows.push([{ text: "🧾 تأیید گروهی", callback_data: "d:mus:bulk:0" }]);
   if (failed) rows.push([{ text: "🔁 تلاش دوباره برای همهٔ ناموفق‌ها", callback_data: "d:mus:retryall" }]);
   rows.push([{ text: "🏠 منو", callback_data: "d:home" }]);
@@ -13175,19 +13265,21 @@ function showAdminVipHub_(chatId, uid, msgId) {
   const plans = getSubscriptionPlans_();
   const activePlans = plans.filter(function(p) { return p.active; }).length;
   const reqs = getPaymentRequests_().filter(function(r) { return r.status === "pending"; });
+  const remixReqs = getRemixPurchases_().filter(function(r) { return r.status === "pending"; });
   const subs = getSubscriptions_().filter(function(s) { return s.status === "active" && dateMillis_(s.expiresAt) > nowMs_(); });
   const lines = [
     "💎 اشتراک و پرداخت",
     "━━━━━━━━━━━━━━━━━━",
     "🔌 سیستم VIP: " + (String(getSetting_("VIP_ENABLED") || "true") === "true" ? "روشن" : "خاموش"),
     "💠 پلن‌ها: " + plans.length + " (فعال: " + activePlans + ")",
-    "👑 اشتراک فعال: " + subs.length + " · ⏳ پرداخت در انتظار: " + reqs.length,
+    "👑 اشتراک فعال: " + subs.length + " · ⏳ پرداخت در انتظار: " + reqs.length + " · 💳 خرید ریمیکس در انتظار: " + remixReqs.length,
     "💳 کارت: " + (getSetting_("PAYMENT_CARD_NUMBER") || "تنظیم نشده"),
     "✅ تأیید خودکار پرداخت: " + (String(getSetting_("PAYMENT_AUTO_APPROVE") || "false") === "true" ? "روشن" : "خاموش")
   ].join("\n");
   const rows = [
     [{ text: "💠 پلن‌ها" + " (" + plans.length + ")", callback_data: "d:vip:plans" }, { text: "⏳ درخواست‌های پرداخت" + (reqs.length ? " (" + reqs.length + ")" : ""), callback_data: "vipx:reqs" }],
-    [{ text: "👑 کاربران VIP", callback_data: "vipx:users" }, { text: "🎁 اهدای اشتراک", callback_data: "vipx:grant" }],
+    [{ text: "💳 خریدهای ریمیکس VIP" + (remixReqs.length ? " (" + remixReqs.length + ")" : ""), callback_data: "d:vip:remixes" }, { text: "👑 کاربران VIP", callback_data: "vipx:users" }],
+    [{ text: "🎁 اهدای اشتراک", callback_data: "vipx:grant" }],
     [{ text: "🔄 تمدید اشتراک", callback_data: "d:vip:extend" }, { text: "➕ افزایش سهمیه", callback_data: "d:vip:quota" }],
     [{ text: (String(getSetting_("VIP_ENABLED") || "true") === "true" ? "🔴 خاموش‌کردن سیستم VIP" : "🟢 روشن‌کردن سیستم VIP"), callback_data: "d:vip:onoff" }],
     [{ text: "💳 اطلاعات کارت پرداخت", callback_data: "d:vip:card" }, { text: "⚙️ تنظیمات VIP", callback_data: "d:set:g:vip" }],
@@ -13474,6 +13566,9 @@ function handleDashboardCallback_(cb) {
   // ── موزیک ──
   if (ns === "mus") {
     if (sub === "hub") { answerCallbackQuery_(cb.id); showAdminMusicHub_(chatId, uid, msgId); return; }
+    if (sub === "new") { answerCallbackQuery_(cb.id); startAdminRemixFlow_(chatId, uid); return; }
+    if (sub === "orders") { answerCallbackQuery_(cb.id); showAdminServiceOrders_(chatId, uid, 0, msgId); return; }
+    if (sub === "vip") { answerCallbackQuery_(cb.id); showAdminRemixPurchases_(chatId, uid, 0, msgId); return; }
     if (sub === "list") { answerCallbackQuery_(cb.id); showDashSubmissionList_(chatId, uid, parts[3] || "all", Number(parts[4]) || 0, msgId); return; }
     if (sub === "card") { answerCallbackQuery_(cb.id); showDashSubmissionCard_(chatId, uid, parts[3] || "", msgId); return; }
     if (sub === "search") { setSession_("M:" + uid, "ADM_SUB_SEARCH", {}); answerCallbackQuery_(cb.id); sendMessage_(chatId, "🔍 عنوان اثر، نام هنرمند یا شناسهٔ اثر را بفرست:", cancelKeyboard_()); return; }
@@ -13602,6 +13697,7 @@ function handleDashboardCallback_(cb) {
   // ── اشتراک و پرداخت ──
   if (ns === "vip") {
     if (sub === "hub") { answerCallbackQuery_(cb.id); showAdminVipHub_(chatId, uid, msgId); return; }
+    if (sub === "remixes") { answerCallbackQuery_(cb.id); showAdminRemixPurchases_(chatId, uid, 0, msgId); return; }
     if (sub === "plans") { answerCallbackQuery_(cb.id); showAdminPlansPanel_(chatId, uid, msgId); return; }
     if (sub === "onoff") {
       const next = String(getSetting_("VIP_ENABLED") || "true") === "true" ? "false" : "true";
@@ -13818,4 +13914,1057 @@ function dashCreatePlanFromDraft_(chatId, uid, msgId) {
   clearSession_("M:" + uid);
   try { sendMessage_(chatId, "✅ پلن «" + badge + " " + name + "» ساخته شد.\n💰 " + price.toLocaleString("en-US") + " تومان · " + days + " روز · " + quota + " ترک"); } catch (e) {}
   showAdminPlanDetail_(chatId, uid, id, msgId);
+}
+
+// ───────────────────────── Remix Paashaa: archive, paid access, orders and gates ─────────────────────────
+function isRemixSubmission_(sub) {
+  const details = sub && sub.request && sub.request.details || {};
+  return details.isRemix === true || String(details.isRemix || "").toLowerCase() === "true";
+}
+function remixIsVip_(sub) {
+  const details = sub && sub.request && sub.request.details || {};
+  return details.vipOnly === true || String(details.vipOnly || "").toLowerCase() === "true";
+}
+function remixPrice_(sub) {
+  const details = sub && sub.request && sub.request.details || {};
+  const price = Number(details.vipPrice || getSetting_("VIP_REMIX_DEFAULT_PRICE") || 50000);
+  return Math.max(0, isFinite(price) ? price : 50000);
+}
+function getPublishedRemixEntries_(query) {
+  const q = String(query || "").trim().toLowerCase();
+  return getAllSubmissions_().filter(function(sub) {
+    if (String(sub.status) !== "published" || !isRemixSubmission_(sub)) return false;
+    if (!q || q === "all") return true;
+    const details = sub.request && sub.request.details || {};
+    return [sub.title, sub.artists, details.remixCode, sub.caption].join(" ").toLowerCase().indexOf(q) >= 0;
+  }).sort(function(a, b) {
+    return dateMillis_(b.publishedAt || b.createdAt) - dateMillis_(a.publishedAt || a.createdAt);
+  });
+}
+function remixDeepLink_(sub) { return sub ? downloadDeepLink_(sub.id) : ""; }
+function canAccessRemix_(userId, sub) {
+  if (!sub || !remixIsVip_(sub) || isAdmin_(userId) || isVipUser_(userId)) return true;
+  return hasPurchasedRemix_(userId, sub.id);
+}
+function showRemixCatalog_(chatId, uid, filter, query, page, editMsgId) {
+  const q = String(query || "").trim();
+  let list = getPublishedRemixEntries_(q);
+  if (String(filter || "all") === "vip") list = list.filter(remixIsVip_);
+  const pageSize = 8;
+  const pages = Math.max(1, Math.ceil(list.length / pageSize));
+  const p = Math.max(0, Math.min(Number(page) || 0, pages - 1));
+  const selected = list.slice(p * pageSize, (p + 1) * pageSize);
+  const rows = selected.map(function(sub) {
+    const prefix = remixIsVip_(sub) && !canAccessRemix_(uid, sub) ? "🔒 💎 " : (remixIsVip_(sub) ? "💎 " : "🎧 ");
+    return [{ text: prefix + truncate_(sub.title || "ریمیکس", 40), callback_data: "rx:open:" + sub.id }];
+  });
+  rows.push([{ text: "🔎 جست‌وجو", callback_data: "rx:search" }, { text: "💎 پلن‌های VIP", callback_data: "rx:vip" }]);
+  if (pages > 1) rows.push([
+    { text: "⬅️", callback_data: "rx:page:" + Math.max(0, p - 1) },
+    { text: (p + 1) + "/" + pages, callback_data: "rx:noop" },
+    { text: "➡️", callback_data: "rx:page:" + Math.min(pages - 1, p + 1) }
+  ]);
+  rows.push([{ text: "🏠 منو", callback_data: "rx:home" }]);
+  const title = list.length
+    ? "🎧 آرشیو ریمیکس‌ها · " + list.length + (q ? "\n🔎 جست‌وجو: " + q : "") + "\nبرای دریافت، ریمیکس را انتخاب کن:"
+    : "🎧 هنوز ریمیکسی برای نمایش منتشر نشده است.";
+  sendOrEditUserPanel_(chatId, editMsgId, title, { inline_keyboard: rows });
+}
+function findRemixBySubmission_(id) {
+  return getPublishedRemixEntries_("").find(function(sub) { return String(sub.id) === String(id); }) || null;
+}
+function showRemixDetail_(chatId, uid, sub, editMsgId) {
+  if (!sub || !isRemixSubmission_(sub)) {
+    sendOrEditUserPanel_(chatId, editMsgId, "این ریمیکس پیدا نشد.", { inline_keyboard: [[{ text: "⬅️ آرشیو", callback_data: "rx:catalog" }]] });
+    return;
+  }
+  const locked = remixIsVip_(sub) && !canAccessRemix_(uid, sub);
+  const details = sub.request && sub.request.details || {};
+  const lines = ["🎧 " + sub.title, "🎙 " + (formatArtistNames_(sub.artists) || "—")];
+  if (locked) {
+    lines.push("", "🔒 این ریمیکس ویژه است. برای بازکردن، خرید همین ریمیکس را انجام بده یا اشتراک VIP بگیر.", "💰 قیمت: " + remixPrice_(sub).toLocaleString("en-US") + " تومان");
+  } else {
+    if (details.remixCode) lines.push("🔠 کد ریمیکس: " + details.remixCode);
+    if (sub.caption) lines.push("", "📖 " + sub.caption);
+  }
+  const rows = [];
+  if (locked) {
+    rows.push([{ text: "💳 خرید این ریمیکس · " + remixPrice_(sub).toLocaleString("en-US") + " تومان", callback_data: "rx:buy:" + sub.id }]);
+    rows.push([{ text: "💎 خرید اشتراک VIP", callback_data: "rx:vip" }]);
+  } else {
+    const url = remixDeepLink_(sub);
+    if (url) rows.push([{ text: "⬇️ دریافت ریمیکس", url: url }]);
+  }
+  rows.push([{ text: "⬅️ آرشیو", callback_data: "rx:catalog" }]);
+  sendOrEditUserPanel_(chatId, editMsgId, lines.join("\n"), { inline_keyboard: rows });
+}
+function handleRemixCatalogCallback_(cb) {
+  const uid = String(cb.from.id);
+  const chatId = String(cb.message && cb.message.chat ? cb.message.chat.id : uid);
+  const parts = String(cb.data || "").split(":");
+  const action = parts[1] || "";
+  if (action === "home") { answerCallbackQuery_(cb.id); showUserMenu_(chatId); return; }
+  const user = getUserById_(uid);
+  if (!user || user.blocked || !user.active || !isLoggedIn_(uid)) {
+    answerCallbackQuery_(cb.id, t_(uid, "LOGIN_NEEDED"));
+    sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED"));
+    return;
+  }
+  if (action === "open") {
+    answerCallbackQuery_(cb.id);
+    showRemixDetail_(chatId, uid, findRemixBySubmission_(parts[2]), cb.message && cb.message.message_id);
+    return;
+  }
+  if (action === "catalog" || action === "page") {
+    answerCallbackQuery_(cb.id);
+    showRemixCatalog_(chatId, uid, "all", "", Number(parts[2]) || 0, cb.message && cb.message.message_id);
+    return;
+  }
+  if (action === "search") {
+    answerCallbackQuery_(cb.id);
+    setSession_("M:" + uid, "RX_SEARCH", {});
+    sendMessage_(chatId, "🔎 نام ریمیکس یا هنرمند را بفرست:", cancelKeyboard_());
+    return;
+  }
+  if (action === "buy") {
+    answerCallbackQuery_(cb.id);
+    startRemixPurchase_(chatId, uid, parts[2] || "");
+    return;
+  }
+  if (action === "vip") { answerCallbackQuery_(cb.id); showVipPanel_(chatId, uid); return; }
+  answerCallbackQuery_(cb.id);
+}
+
+// ───────────────────────── سفارش بیت و میکس‌ومستر ─────────────────────────
+function startServiceOrder_(chatId, uid, kind) {
+  if (!isLoggedIn_(uid)) { sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED")); return; }
+  const orderKind = kind === "beat" ? "beat" : "mix_master";
+  const label = orderKind === "beat" ? "سفارش بیت" : "سفارش میکس‌ومستر";
+  setSession_("M:" + uid, "ORDER_DETAILS", { kind: orderKind });
+  sendMessage_(chatId, "🧾 " + label + "\nلطفاً جزئیات را در یک پیام بنویس: سبک، BPM، گام، مرجع صوتی، بودجه و موعد تحویل. برای هماهنگی شماره تماس یا لینک نمونه را هم اضافه کن.", cancelKeyboard_());
+}
+function getServiceOrders_() {
+  if (SERVICE_ORDERS_MEMO_ !== null) return SERVICE_ORDERS_MEMO_;
+  SERVICE_ORDERS_MEMO_ = readSheetObjects_(APP.SHEETS.SERVICE_ORDERS, HEADERS.ServiceOrders).map(function(r) {
+    return {
+      rowNumber: r.rowNumber, id: String(r.order_id || ""), userId: String(r.user_id || ""),
+      kind: String(r.kind || ""), details: String(r.details || ""), status: String(r.status || "pending"),
+      adminNote: String(r.admin_note || ""), createdAt: r.created_at || "", updatedAt: r.updated_at || ""
+    };
+  }).filter(function(order) { return order.id; });
+  return SERVICE_ORDERS_MEMO_;
+}
+function bustServiceOrdersCache_() { SERVICE_ORDERS_MEMO_ = null; }
+function handleServiceOrderInput_(message, session) {
+  const uid = String(message.from.id), chatId = String(message.chat.id);
+  const text = String(message.text || message.caption || "").trim();
+  if (text.length < 8) { sendMessage_(chatId, "لطفاً جزئیات بیشتری بنویس (حداقل ۸ نویسه).", cancelKeyboard_()); return; }
+  const kind = session && session.data && session.data.kind === "beat" ? "beat" : "mix_master";
+  const now = new Date(), id = newId_("ORD");
+  appendRowObject_(APP.SHEETS.SERVICE_ORDERS, HEADERS.ServiceOrders, {
+    order_id: id, user_id: uid, kind: kind, details: text.slice(0, 4000), status: "pending",
+    admin_note: "", created_at: now, updated_at: now
+  });
+  bustServiceOrdersCache_();
+  clearSession_("M:" + uid);
+  sendMessage_(chatId, "✅ سفارش ثبت شد.\n🆔 " + id + "\nمدیر برای هماهنگی با تو تماس می‌گیرد.", userKeyboard_(uid));
+  const label = kind === "beat" ? "بیت" : "میکس‌ومستر";
+  getAdmins_().forEach(function(adminId) {
+    try {
+      sendMessage_(adminId, "🧾 سفارش جدید " + label + "\n👤 کاربر: " + uid + "\n📝 " + truncate_(text, 700) + "\n🆔 " + id,
+        { inline_keyboard: [[{ text: "📂 مشاهده / بررسی", callback_data: "so:view:" + id }]] });
+    } catch (e) {}
+  });
+}
+function showUserServiceOrders_(chatId, uid, editMsgId) {
+  const list = getServiceOrders_().filter(function(order) { return order.userId === String(uid); })
+    .sort(function(a, b) { return dateMillis_(b.createdAt) - dateMillis_(a.createdAt); }).slice(0, 10);
+  const labels = { pending: "⏳ در انتظار", completed: "✅ انجام‌شده", rejected: "❌ ردشده" };
+  const text = list.length ? "🧾 سفارش‌های اخیر تو؛ برای جزئیات یک سفارش را بزن:" : "هنوز سفارشی ثبت نکرده‌ای.";
+  const rows = list.map(function(order) {
+    return [{ text: "🧾 " + order.id + " — " + (order.kind === "beat" ? "بیت" : "میکس‌ومستر") + " · " + (labels[order.status] || order.status), callback_data: "so:user:" + order.id }];
+  });
+  rows.push([{ text: "🔄 بازخوانی", callback_data: "so:mine" }, { text: "🏠 منو", callback_data: "rx:home" }]);
+  sendOrEditUserPanel_(chatId, editMsgId, text, { inline_keyboard: rows });
+}
+function handleUserServiceOrderCallback_(cb) {
+  const uid = String(cb.from.id), chatId = String(cb.message && cb.message.chat ? cb.message.chat.id : uid);
+  const user = getUserById_(uid);
+  if (!user || user.blocked || !user.active || !isLoggedIn_(uid)) {
+    answerCallbackQuery_(cb.id, t_(uid, "LOGIN_NEEDED"));
+    sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED"));
+    return;
+  }
+  if (!passForceJoin_(uid, chatId)) { answerCallbackQuery_(cb.id, t_(uid, "JOIN_NOT_YET")); return; }
+  const parts = String(cb.data || "").split(":");
+  if (parts[1] === "user") {
+    const order = getServiceOrders_().find(function(item) { return item.id === parts[2] && item.userId === uid; }) || null;
+    if (!order) { answerCallbackQuery_(cb.id, t_(uid, "NO_ACCESS_BTN")); return; }
+    const labels = { pending: "⏳ در انتظار بررسی", completed: "✅ انجام‌شده", rejected: "❌ ردشده" };
+    const text = "🧾 سفارش " + order.id + "\n🎛 نوع: " + (order.kind === "beat" ? "بیت" : "میکس‌ومستر") + "\n🚦 وضعیت: " + (labels[order.status] || order.status) + "\n🗓 ثبت: " + formatDate_(order.createdAt) + "\n🕒 آخرین تغییر: " + formatDate_(order.updatedAt) + "\n\n📝 جزئیات:\n" + truncate_(order.details, 3000);
+    answerCallbackQuery_(cb.id);
+    sendOrEditUserPanel_(chatId, cb.message && cb.message.message_id, text, { inline_keyboard: [[{ text: "⬅️ سفارش‌های من", callback_data: "so:mine" }, { text: "🏠 منو", callback_data: "rx:home" }]] });
+    return;
+  }
+  answerCallbackQuery_(cb.id);
+  showUserServiceOrders_(chatId, uid, cb.message && cb.message.message_id);
+}
+function setServiceOrderStatus_(order, status, adminId) {
+  if (!order || ["completed", "rejected"].indexOf(status) < 0) return false;
+  return withLock_(function() {
+    const current = readSheetObjects_(APP.SHEETS.SERVICE_ORDERS, HEADERS.ServiceOrders)
+      .find(function(row) { return String(row.order_id) === String(order.id); });
+    if (!current || String(current.status || "pending") !== "pending") return false;
+    const sh = getSheet_(APP.SHEETS.SERVICE_ORDERS), columns = HEADERS.ServiceOrders;
+    sh.getRange(current.rowNumber, columns.indexOf("status") + 1).setValue(status);
+    sh.getRange(current.rowNumber, columns.indexOf("updated_at") + 1).setValue(new Date());
+    sh.getRange(current.rowNumber, columns.indexOf("admin_note") + 1).setValue("تغییر وضعیت توسط مدیر " + String(adminId || ""));
+    bustServiceOrdersCache_();
+    return true;
+  });
+}
+function showAdminServiceOrders_(chatId, uid, page, editMsgId) {
+  if (!adminGate_(chatId, uid, "submissions")) return;
+  const list = getServiceOrders_().filter(function(order) { return order.status === "pending"; })
+    .sort(function(a, b) { return dateMillis_(b.createdAt) - dateMillis_(a.createdAt); });
+  const size = 6, pages = Math.max(1, Math.ceil(list.length / size));
+  const p = Math.max(0, Math.min(Number(page) || 0, pages - 1));
+  const rows = list.slice(p * size, (p + 1) * size).map(function(order) {
+    const label = order.kind === "beat" ? "🎹 بیت" : "🎚 میکس‌ومستر";
+    return [{ text: label + " · " + order.id, callback_data: "so:view:" + order.id }];
+  });
+  if (pages > 1) rows.push([
+    { text: "⬅️", callback_data: "so:list:" + Math.max(0, p - 1) },
+    { text: (p + 1) + "/" + pages, callback_data: "so:list:" + p },
+    { text: "➡️", callback_data: "so:list:" + Math.min(pages - 1, p + 1) }
+  ]);
+  rows.push([{ text: "🏠 هاب موزیک", callback_data: "d:mus:hub" }]);
+  sendOrEditAdminPanel_(chatId, editMsgId, "🧾 سفارش‌های باز: " + list.length + (list.length ? "" : "\nسفارش بازی وجود ندارد."), { inline_keyboard: rows });
+}
+function showServiceOrderDetail_(chatId, uid, order, editMsgId) {
+  if (!order) { sendOrEditAdminPanel_(chatId, editMsgId, "سفارش پیدا نشد.", { inline_keyboard: [[{ text: "⬅️ بازگشت", callback_data: "d:mus:orders" }]] }); return; }
+  const text = "🧾 " + order.id + "\n👤 کاربر: " + order.userId + "\n🎛 نوع: " + (order.kind === "beat" ? "سفارش بیت" : "سفارش میکس‌ومستر") + "\n🚦 وضعیت: " + order.status + "\n🗓 " + formatDate_(order.createdAt) + "\n\n📝 جزئیات:\n" + truncate_(order.details, 3000);
+  const rows = [];
+  if (order.status === "pending") rows.push([
+    { text: "✅ انجام شد", callback_data: "so:status:" + order.id + ":completed" },
+    { text: "❌ رد سفارش", callback_data: "so:status:" + order.id + ":rejected" }
+  ]);
+  rows.push([{ text: "⬅️ بازگشت", callback_data: "so:list:0" }]);
+  sendOrEditAdminPanel_(chatId, editMsgId, text, { inline_keyboard: rows });
+}
+function handleServiceOrderCallback_(cb) {
+  const uid = String(cb.from.id), chatId = String(cb.message && cb.message.chat ? cb.message.chat.id : uid);
+  const parts = String(cb.data || "").split(":");
+  if (!hasAdminPermission_(uid, "submissions")) { answerCallbackQuery_(cb.id, "دسترسی نداری."); return; }
+  if (parts[1] === "list") {
+    answerCallbackQuery_(cb.id);
+    showAdminServiceOrders_(chatId, uid, Number(parts[2]) || 0, cb.message && cb.message.message_id);
+    return;
+  }
+  if (parts[1] === "view") {
+    const order = getServiceOrders_().find(function(item) { return item.id === parts[2]; }) || null;
+    answerCallbackQuery_(cb.id);
+    showServiceOrderDetail_(chatId, uid, order, cb.message && cb.message.message_id);
+    return;
+  }
+  if (parts[1] === "status") {
+    const order = getServiceOrders_().find(function(item) { return item.id === parts[2]; }) || null;
+    if (!order) { answerCallbackQuery_(cb.id, "سفارش پیدا نشد."); return; }
+    const next = String(parts[3] || "");
+    if (["completed", "rejected"].indexOf(next) < 0) { answerCallbackQuery_(cb.id, "وضعیت نامعتبر است."); return; }
+    if (order.status !== "pending") { answerCallbackQuery_(cb.id, "این سفارش قبلاً بررسی شده است."); return; }
+    if (!setServiceOrderStatus_(order, next, uid)) { answerCallbackQuery_(cb.id, "سفارش قبلاً بررسی شده یا ثبت وضعیت ناموفق بود."); return; }
+    answerCallbackQuery_(cb.id, "وضعیت سفارش ثبت شد.");
+    try { sendMessage_(order.userId, "🧾 وضعیت سفارش " + order.id + ": " + (next === "completed" ? "✅ انجام شد" : "❌ رد شد")); } catch (e) {}
+    showAdminServiceOrders_(chatId, uid, 0, cb.message && cb.message.message_id);
+    return;
+  }
+  answerCallbackQuery_(cb.id, "دکمه نامعتبر است.");
+}
+
+// ───────────────────────── خرید تکی ریمیکس VIP ─────────────────────────
+function getRemixPurchases_() {
+  if (REMIX_PURCHASES_MEMO_ !== null) return REMIX_PURCHASES_MEMO_;
+  REMIX_PURCHASES_MEMO_ = readSheetObjects_(APP.SHEETS.REMIX_PURCHASES, HEADERS.RemixPurchases).map(function(r) {
+    return {
+      rowNumber: r.rowNumber, id: String(r.purchase_id || ""), submissionId: String(r.submission_id || ""),
+      userId: String(r.user_id || ""), amount: Number(r.amount) || 0, refCode: String(r.ref_code || ""),
+      receiptFileId: String(r.receipt_file_id || ""), status: String(r.status || "pending"),
+      adminNote: String(r.admin_note || ""), createdAt: r.created_at || "", reviewedBy: String(r.reviewed_by || ""), reviewedAt: r.reviewed_at || ""
+    };
+  }).filter(function(purchase) { return purchase.id; });
+  return REMIX_PURCHASES_MEMO_;
+}
+function bustRemixPurchasesCache_() { REMIX_PURCHASES_MEMO_ = null; }
+function hasPurchasedRemix_(userId, submissionId) {
+  return getRemixPurchases_().some(function(purchase) {
+    return purchase.userId === String(userId) && purchase.submissionId === String(submissionId) && purchase.status === "approved";
+  });
+}
+function pendingRemixPurchase_(userId, submissionId) {
+  return getRemixPurchases_().find(function(purchase) {
+    return purchase.userId === String(userId) && purchase.submissionId === String(submissionId) && purchase.status === "pending";
+  }) || null;
+}
+function createRemixPurchase_(userId, sub, amount, refCode, receiptFileId) {
+  return withLock_(function() {
+    const duplicate = readSheetObjects_(APP.SHEETS.REMIX_PURCHASES, HEADERS.RemixPurchases).some(function(row) {
+      return String(row.user_id) === String(userId) && String(row.submission_id) === String(sub.id) && String(row.status || "pending") === "pending";
+    });
+    if (duplicate) return "";
+    const id = newId_("RXP"), now = new Date();
+    appendRowObject_(APP.SHEETS.REMIX_PURCHASES, HEADERS.RemixPurchases, {
+      purchase_id: id, submission_id: sub.id, user_id: String(userId), amount: Number(amount) || 0,
+      ref_code: String(refCode || "").slice(0, 200), receipt_file_id: String(receiptFileId || ""),
+      status: "pending", admin_note: "", created_at: now, reviewed_by: "", reviewed_at: ""
+    });
+    bustRemixPurchasesCache_();
+    return id;
+  });
+}
+function startRemixPurchase_(chatId, uid, submissionId) {
+  if (!isLoggedIn_(uid)) { sendEntryCard_(chatId, t_(uid, "LOGIN_NEEDED")); return; }
+  const sub = findRemixBySubmission_(submissionId);
+  if (!sub || !remixIsVip_(sub)) { sendMessage_(chatId, "این ریمیکس برای خرید VIP در دسترس نیست."); return; }
+  if (canAccessRemix_(uid, sub)) { showRemixDetail_(chatId, uid, sub); return; }
+  const pending = pendingRemixPurchase_(uid, sub.id);
+  if (pending) { sendMessage_(chatId, "⏳ درخواست خرید این ریمیکس در انتظار بررسی مدیر است.\n🆔 " + pending.id); return; }
+  const amount = remixPrice_(sub);
+  if (!(amount > 0)) { sendMessage_(chatId, "قیمت این ریمیکس هنوز توسط مدیر تعیین نشده است."); return; }
+  setSession_("M:" + uid, "VIP_REMIX_PAY", { submissionId: sub.id, amount: amount });
+  const card = String(getSetting_("PAYMENT_CARD_NUMBER") || "—");
+  const holder = String(getSetting_("PAYMENT_CARD_HOLDER") || "—");
+  const instructions = String(getSetting_("PAYMENT_INSTRUCTIONS") || "شمارهٔ پیگیری یا تصویر رسید را ارسال کن.");
+  sendMessage_(chatId, "💳 خرید ریمیکس «" + sub.title + "»\n💰 مبلغ: " + amount.toLocaleString("en-US") + " تومان\n💳 شمارهٔ کارت: " + card + "\n👤 صاحب کارت: " + holder + "\n📝 " + instructions + "\n\nپس از پرداخت، شمارهٔ پیگیری را بفرست یا تصویر رسید را ارسال کن. خرید پس از تأیید مدیر فعال می‌شود.", cancelKeyboard_());
+}
+function handleRemixPurchaseInput_(message, session) {
+  const uid = String(message.from.id), chatId = String(message.chat.id);
+  const data = session && session.data || {};
+  const sub = findRemixBySubmission_(data.submissionId);
+  if (!sub || !remixIsVip_(sub)) { clearSession_("M:" + uid); sendMessage_(chatId, "این ریمیکس دیگر برای خرید در دسترس نیست.", userKeyboard_(uid)); return; }
+  if (canAccessRemix_(uid, sub)) { clearSession_("M:" + uid); showRemixDetail_(chatId, uid, sub); return; }
+  if (pendingRemixPurchase_(uid, sub.id)) { clearSession_("M:" + uid); sendMessage_(chatId, "⏳ درخواست خریدت پیش‌تر ثبت شده و منتظر بررسی است.", userKeyboard_(uid)); return; }
+  const text = String(message.text || message.caption || "").trim();
+  let receiptFileId = "";
+  if (message.photo && message.photo.length) receiptFileId = String(message.photo[message.photo.length - 1].file_id || "");
+  else if (message.document && /^image\//i.test(String(message.document.mime_type || ""))) receiptFileId = String(message.document.file_id || "");
+  if (text.length < 2 && !receiptFileId) { sendMessage_(chatId, "شمارهٔ پیگیری را بنویس یا تصویر رسید را ارسال کن.", cancelKeyboard_()); return; }
+  const id = createRemixPurchase_(uid, sub, Number(data.amount) || remixPrice_(sub), text, receiptFileId);
+  clearSession_("M:" + uid);
+  if (!id) { sendMessage_(chatId, "⏳ برای این ریمیکس یک درخواست خرید در انتظار بررسی وجود دارد.", userKeyboard_(uid)); return; }
+  sendMessage_(chatId, "✅ درخواست خرید ثبت شد و برای بررسی مدیر رفت. پس از تأیید، دکمهٔ دریافت برایت فعال می‌شود.\n🆔 " + id, userKeyboard_(uid));
+  const admins = getAdmins_();
+  admins.forEach(function(adminId) {
+    try {
+      sendMessage_(adminId, "💳 درخواست خرید ریمیکس VIP\n🎧 " + sub.title + "\n👤 کاربر: " + uid + "\n💰 " + Number(data.amount || remixPrice_(sub)).toLocaleString("en-US") + " تومان\n🧾 پیگیری: " + (text || "—") + (receiptFileId ? "\n🖼 رسید پیوست شده" : "") + "\n🆔 " + id,
+        { inline_keyboard: [[{ text: "✅ تأیید خرید", callback_data: "rxpay:approve:" + id }, { text: "❌ رد", callback_data: "rxpay:reject:" + id }]] });
+    } catch (e) {}
+  });
+}
+function setRemixPurchaseStatus_(purchase, status, adminId) {
+  if (!purchase || ["approved", "rejected"].indexOf(status) < 0) return false;
+  return withLock_(function() {
+    const current = readSheetObjects_(APP.SHEETS.REMIX_PURCHASES, HEADERS.RemixPurchases)
+      .find(function(row) { return String(row.purchase_id) === String(purchase.id); });
+    if (!current || String(current.status || "pending") !== "pending") return false;
+    const sh = getSheet_(APP.SHEETS.REMIX_PURCHASES), columns = HEADERS.RemixPurchases;
+    sh.getRange(current.rowNumber, columns.indexOf("status") + 1).setValue(status);
+    sh.getRange(current.rowNumber, columns.indexOf("reviewed_by") + 1).setValue(String(adminId || ""));
+    sh.getRange(current.rowNumber, columns.indexOf("reviewed_at") + 1).setValue(new Date());
+    bustRemixPurchasesCache_();
+    return true;
+  });
+}
+function showAdminRemixPurchases_(chatId, uid, page, editMsgId) {
+  if (!adminGate_(chatId, uid, "settings")) return;
+  const list = getRemixPurchases_().filter(function(purchase) { return purchase.status === "pending"; })
+    .sort(function(a, b) { return dateMillis_(b.createdAt) - dateMillis_(a.createdAt); });
+  const size = 6, pages = Math.max(1, Math.ceil(list.length / size));
+  const p = Math.max(0, Math.min(Number(page) || 0, pages - 1));
+  const rows = list.slice(p * size, (p + 1) * size).map(function(purchase) {
+    const sub = getSubmission_(purchase.submissionId);
+    return [{ text: "💳 " + truncate_(sub && sub.title || purchase.submissionId, 24) + " · " + purchase.amount.toLocaleString("en-US") + " تومان", callback_data: "rxpay:view:" + purchase.id }];
+  });
+  if (pages > 1) rows.push([
+    { text: "⬅️", callback_data: "rxpay:list:" + Math.max(0, p - 1) },
+    { text: (p + 1) + "/" + pages, callback_data: "rxpay:list:" + p },
+    { text: "➡️", callback_data: "rxpay:list:" + Math.min(pages - 1, p + 1) }
+  ]);
+  rows.push([{ text: "🏠 هاب موزیک", callback_data: "d:mus:hub" }]);
+  sendOrEditAdminPanel_(chatId, editMsgId, "💳 درخواست‌های خرید VIP در انتظار: " + list.length + (list.length ? "" : "\nدرخواستی برای بررسی نیست."), { inline_keyboard: rows });
+}
+function showAdminRemixPurchaseDetail_(chatId, uid, purchase, editMsgId) {
+  if (!purchase) { sendOrEditAdminPanel_(chatId, editMsgId, "درخواست خرید پیدا نشد.", { inline_keyboard: [[{ text: "⬅️ بازگشت", callback_data: "rxpay:list:0" }]] }); return; }
+  const sub = getSubmission_(purchase.submissionId);
+  if (purchase.receiptFileId) {
+    try { telegramRequest_("sendPhoto", { chat_id: String(chatId), photo: purchase.receiptFileId, caption: "🧾 رسید خرید " + purchase.id }); } catch (e) {}
+  }
+  const text = "💳 درخواست خرید VIP\n🆔 " + purchase.id + "\n🎧 ریمیکس: " + (sub && sub.title || purchase.submissionId) + "\n👤 کاربر: " + purchase.userId + "\n💰 مبلغ: " + purchase.amount.toLocaleString("en-US") + " تومان\n🧾 شمارهٔ پیگیری: " + (purchase.refCode || "—") + "\n🚦 وضعیت: " + purchase.status + "\n🗓 " + formatDate_(purchase.createdAt);
+  const rows = [];
+  if (purchase.status === "pending") rows.push([
+    { text: "✅ تأیید", callback_data: "rxpay:approve:" + purchase.id },
+    { text: "❌ رد", callback_data: "rxpay:reject:" + purchase.id }
+  ]);
+  rows.push([{ text: "⬅️ بازگشت", callback_data: "rxpay:list:0" }]);
+  sendOrEditAdminPanel_(chatId, editMsgId, text, { inline_keyboard: rows });
+}
+function handleAdminRemixPurchaseCallback_(cb) {
+  const uid = String(cb.from.id), chatId = String(cb.message && cb.message.chat ? cb.message.chat.id : uid);
+  const parts = String(cb.data || "").split(":");
+  if (!hasAdminPermission_(uid, "settings")) { answerCallbackQuery_(cb.id, "دسترسی نداری."); return; }
+  if (parts[1] === "list") {
+    answerCallbackQuery_(cb.id);
+    showAdminRemixPurchases_(chatId, uid, Number(parts[2]) || 0, cb.message && cb.message.message_id);
+    return;
+  }
+  const purchase = getRemixPurchases_().find(function(item) { return item.id === parts[2]; }) || null;
+  if (parts[1] === "view") {
+    answerCallbackQuery_(cb.id);
+    showAdminRemixPurchaseDetail_(chatId, uid, purchase, cb.message && cb.message.message_id);
+    return;
+  }
+  if (parts[1] === "approve" || parts[1] === "reject") {
+    if (!purchase) { answerCallbackQuery_(cb.id, "درخواست خرید پیدا نشد."); return; }
+    if (purchase.status !== "pending") { answerCallbackQuery_(cb.id, "این درخواست قبلاً بررسی شده است."); return; }
+    const status = parts[1] === "approve" ? "approved" : "rejected";
+    if (!setRemixPurchaseStatus_(purchase, status, uid)) { answerCallbackQuery_(cb.id, "ثبت وضعیت ناموفق بود."); return; }
+    answerCallbackQuery_(cb.id, status === "approved" ? "✅ خرید تأیید شد" : "خرید رد شد");
+    if (status === "approved") {
+      const url = downloadDeepLink_(purchase.submissionId);
+      sendMessage_(purchase.userId, "🎉 خرید ریمیکس تأیید شد. حالا می‌توانی فایل را دریافت کنی.", url ? { inline_keyboard: [[{ text: "⬇️ دریافت ریمیکس", url: url }]] } : userKeyboard_(purchase.userId));
+    } else sendMessage_(purchase.userId, "❌ درخواست خرید ریمیکس تأیید نشد. اگر فکر می‌کنی اشتباهی رخ داده، با پشتیبانی تماس بگیر.");
+    showAdminRemixPurchases_(chatId, uid, 0, cb.message && cb.message.message_id);
+    return;
+  }
+  answerCallbackQuery_(cb.id, "دکمه نامعتبر است.");
+}
+
+// ───────────────────────── گیت واکنش به سه پست آخر ─────────────────────────
+function reactionTargetChannel_() {
+  return String(getSetting_("REACTION_CHANNEL_ID") || getSetting_("CHANNEL_ID") || "@profonplus").trim();
+}
+function reactionTargetUsername_() {
+  const target = reactionTargetChannel_();
+  if (/^@[A-Za-z][A-Za-z0-9_]{4,31}$/.test(target)) return target.slice(1).toLowerCase();
+  return String(getSetting_("REACTION_CHANNEL_USERNAME") || "").replace(/^@/, "").toLowerCase();
+}
+function reactionChannelMatches_(chat) {
+  if (!chat) return false;
+  const target = normalizeChannelId_(reactionTargetChannel_());
+  const chatId = normalizeChannelId_(chat.id || chat.chat_id || "");
+  if (target && target.charAt(0) !== "@") return chatId === target;
+  const targetUsername = reactionTargetUsername_();
+  const username = String(chat.username || "").replace(/^@/, "").toLowerCase();
+  return !!targetUsername && username === targetUsername;
+}
+function reactionPublishChannelMatches_(channel) {
+  if (!channel) return false;
+  if (reactionChannelMatches_({ id: channel.chatId || channel.id, username: channel.username || "" })) return true;
+  const target = normalizeChannelId_(reactionTargetChannel_());
+  const main = normalizeChannelId_(getSetting_("CHANNEL_ID"));
+  if (target && target.charAt(0) === "@" && main && normalizeChannelId_(channel.chatId) === main) {
+    try {
+      const info = telegramRequest_("getChat", { chat_id: String(channel.chatId) });
+      if (info && info.ok && info.result && reactionChannelMatches_({ id: info.result.id, username: info.result.username })) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+function reactionPostUrl_(chatId, messageId, username) {
+  let user = String(username || "").replace(/^@/, "");
+  const target = normalizeChannelId_(reactionTargetChannel_());
+  if (!user && target && target.charAt(0) === "@") user = target.slice(1);
+  if (user) return "https://t.me/" + user + "/" + String(messageId);
+  const id = normalizeChannelId_(chatId);
+  if (/^-100\d+$/.test(id)) return "https://t.me/c/" + id.slice(4) + "/" + String(messageId);
+  return "";
+}
+function getReactionPosts_() {
+  if (REACTION_POSTS_MEMO_ !== null) return REACTION_POSTS_MEMO_;
+  const target = normalizeChannelId_(reactionTargetChannel_());
+  const targetUsername = reactionTargetUsername_();
+  REACTION_POSTS_MEMO_ = readSheetObjects_(APP.SHEETS.REACTION_POSTS, HEADERS.ReactionPosts).map(function(r) {
+    return {
+      rowNumber: r.rowNumber, chatId: String(r.channel_id || ""), username: String(r.channel_username || "").replace(/^@/, "").toLowerCase(),
+      messageId: String(r.message_id || ""), title: String(r.title || "پست کانال"), link: String(r.post_url || ""),
+      requiredEmojis: String(r.required_emojis || ""), active: String(r.active).toLowerCase() !== "false", createdAt: r.created_at || ""
+    };
+  }).filter(function(post) {
+    if (!post.messageId || !post.active) return false;
+    if (target && target.charAt(0) === "@") return post.username === targetUsername || normalizeChannelId_(post.chatId) === target;
+    return !target || normalizeChannelId_(post.chatId) === target;
+  }).sort(function(a, b) {
+    const diff = Number(a.messageId) - Number(b.messageId);
+    return isFinite(diff) && diff !== 0 ? diff : dateMillis_(a.createdAt) - dateMillis_(b.createdAt);
+  });
+  return REACTION_POSTS_MEMO_;
+}
+function upsertReactionPost_(chatId, username, messageId, title, url, source) {
+  const channel = normalizeChannelId_(chatId) || String(chatId || "");
+  const user = String(username || "").replace(/^@/, "").toLowerCase();
+  const mid = String(messageId || "").trim();
+  if (!channel || !mid) return false;
+  return withLock_(function() {
+    const rows = readSheetObjects_(APP.SHEETS.REACTION_POSTS, HEADERS.ReactionPosts);
+    const existing = rows.find(function(r) {
+      const sameMessage = String(r.message_id || "") === mid;
+      const rowUser = String(r.channel_username || "").replace(/^@/, "").toLowerCase();
+      const sameChannel = normalizeChannelId_(r.channel_id) === channel || (!!user && rowUser === user);
+      return sameMessage && sameChannel;
+    });
+    const obj = {
+      channel_id: channel, message_id: mid, title: truncate_(String(title || "پست کانال").replace(/\s+/g, " "), 120),
+      post_url: url || reactionPostUrl_(channel, mid, user), required_emojis: String(getSetting_("REACTION_REQUIRED_EMOJIS") || "🔥,🤍"),
+      active: "true", created_at: existing && existing.created_at || new Date(), source: String(source || "webhook"), channel_username: user
+    };
+    const sh = getSheet_(APP.SHEETS.REACTION_POSTS);
+    if (existing) sh.getRange(existing.rowNumber, 1, 1, HEADERS.ReactionPosts.length).setValues([HEADERS.ReactionPosts.map(function(h) { return obj[h] == null ? "" : obj[h]; })]);
+    else appendRowObject_(APP.SHEETS.REACTION_POSTS, HEADERS.ReactionPosts, obj);
+    REACTION_POSTS_MEMO_ = null;
+    return true;
+  });
+}
+function updateReactionPostFromMessage_(message) {
+  if (!message || !message.chat || !message.message_id || !reactionChannelMatches_(message.chat)) return;
+  const text = String(message.caption || message.text || "");
+  const title = (text.split(/\r?\n/)[0] || "پست کانال").replace(/<[^>]*>/g, "").trim();
+  const username = String(message.chat.username || reactionTargetUsername_()).replace(/^@/, "");
+  upsertReactionPost_(String(message.chat.id), username, message.message_id, title, reactionPostUrl_(message.chat.id, message.message_id, username), "channel_post");
+}
+function handleChannelPostUpdate_(message) { updateReactionPostFromMessage_(message); }
+function registerPublishedReactionPosts_(sub, channel, channelStage) {
+  if (!reactionPublishChannelMatches_(channel) || !channelStage) return;
+  const ids = [].concat(channelStage.visualMessageIds || [], channelStage.audioMessageIds || []);
+  const username = String(channel.username || reactionTargetUsername_()).replace(/^@/, "");
+  const title = sub && sub.title ? sub.title : "پست ریمیکس";
+  Array.from(new Set(ids.map(String))).forEach(function(id) {
+    upsertReactionPost_(channel.chatId || channel.id, username, id, title, reactionPostUrl_(channel.chatId || channel.id, id, username), "bot_publish");
+  });
+}
+function reactionKey_(chatId, messageId, userId) { return [String(chatId), String(messageId), String(userId)].join("|"); }
+function getReactionStates_() {
+  if (REACTION_STATES_MEMO_ !== null) return REACTION_STATES_MEMO_;
+  REACTION_STATES_MEMO_ = readSheetObjects_(APP.SHEETS.REACTION_STATES, HEADERS.ReactionStates).map(function(r) {
+    return { rowNumber: r.rowNumber, key: String(r.state_key || ""), chatId: String(r.channel_id || ""), messageId: String(r.message_id || ""), userId: String(r.user_id || ""), emojis: String(r.emojis || ""), updatedAt: r.updated_at || "" };
+  }).filter(function(state) { return state.key; });
+  return REACTION_STATES_MEMO_;
+}
+function setReactionState_(post, userId, emojis) {
+  if (!post || !post.messageId || !userId) return;
+  const chatId = String(post.chatId), messageId = String(post.messageId), uid = String(userId);
+  const key = reactionKey_(chatId, messageId, uid);
+  const values = Array.from(new Set((emojis || []).map(String).filter(Boolean))).join(",");
+  withLock_(function() {
+    const rows = readSheetObjects_(APP.SHEETS.REACTION_STATES, HEADERS.ReactionStates);
+    const existing = rows.find(function(row) { return String(row.state_key) === key; });
+    if (existing) {
+      const sh = getSheet_(APP.SHEETS.REACTION_STATES);
+      sh.getRange(existing.rowNumber, HEADERS.ReactionStates.indexOf("emojis") + 1).setValue(values);
+      sh.getRange(existing.rowNumber, HEADERS.ReactionStates.indexOf("updated_at") + 1).setValue(new Date());
+    } else {
+      appendRowObject_(APP.SHEETS.REACTION_STATES, HEADERS.ReactionStates, { state_key: key, channel_id: chatId, message_id: messageId, user_id: uid, emojis: values, updated_at: new Date() });
+    }
+  });
+  REACTION_STATES_MEMO_ = null;
+}
+function handleMessageReactionUpdate_(update) {
+  if (!update || !update.chat || !update.user || !reactionChannelMatches_(update.chat)) return;
+  const messageId = String(update.message_id || "");
+  const posts = getReactionPosts_().filter(function(post) { return post.messageId === messageId; });
+  if (!posts.length) return;
+  const emojis = (update.new_reaction || []).map(function(reaction) {
+    return reaction && reaction.type === "emoji" ? String(reaction.emoji || "") : "";
+  }).filter(Boolean);
+  posts.forEach(function(post) { setReactionState_(post, update.user.id, emojis); });
+}
+function reactionRequiredEmojis_(post) {
+  const raw = String(post && post.requiredEmojis || getSetting_("REACTION_REQUIRED_EMOJIS") || "🔥,🤍");
+  return raw.split(/[,،\s]+/).map(function(x) { return x.trim(); }).filter(Boolean);
+}
+function reactionRequiredPostCount_() {
+  const n = Number(getSetting_("REACTION_REQUIRED_POSTS") || 3);
+  return isFinite(n) ? Math.max(1, Math.min(10, Math.floor(n))) : 3;
+}
+function reactionRequirementsMet_(userId) {
+  if (String(getSetting_("REACTION_GATE_ENABLED") || "false") !== "true") return true;
+  const count = reactionRequiredPostCount_();
+  const posts = getReactionPosts_().slice(-count);
+  if (posts.length < count) return false;
+  const states = getReactionStates_();
+  return posts.every(function(post) {
+    const state = states.find(function(row) { return row.key === reactionKey_(post.chatId, post.messageId, userId); });
+    const got = state ? String(state.emojis || "").split(",").filter(Boolean) : [];
+    return reactionRequiredEmojis_(post).every(function(emoji) { return got.indexOf(emoji) >= 0; });
+  });
+}
+function sendReactionGate_(chatId, userId) {
+  const count = reactionRequiredPostCount_();
+  const posts = getReactionPosts_().slice(-count).reverse();
+  const rows = posts.map(function(post, index) {
+    const link = post.link || reactionPostUrl_(post.chatId, post.messageId, post.username);
+    return [{ text: "📌 پست " + (index + 1) + " · " + truncate_(post.title, 25), url: link }];
+  });
+  rows.push([{ text: "✅ بررسی واکنش‌ها", callback_data: "rg:check" }]);
+  const ready = posts.length >= count;
+  const required = reactionRequiredEmojis_(posts[0] || null);
+  const emojiText = required.join(" و ") || "واکنش‌های تنظیم‌شده";
+  const text = ready
+    ? "برای دریافت فایل، روی هرکدام از " + count + " پست آخر واکنش‌های " + emojiText + " را ثبت کن؛ بعد «بررسی واکنش‌ها» را بزن. همهٔ واکنش‌های فهرست‌شده روی همهٔ پست‌ها لازم‌اند."
+    : "⏳ گیت ری‌اکشن فعال است، اما هنوز " + count + " پست برای بررسی ثبت نشده. مدیر باید لینک پست‌های کانال را از پنل عضویت ثبت کند.";
+  sendMessage_(chatId, text, { inline_keyboard: rows });
+}
+function requestMusicDownload_(chatId, userId, trackIdOrSubmissionId, previousSession) {
+  const uid = String(userId), admin = isAdmin_(uid);
+  const track = getDownloadableMusicTrack_(trackIdOrSubmissionId);
+  if (!track) { sendMessage_(chatId, t_(uid, "DOWNLOAD_DISABLED")); return false; }
+  const sub = getSubmission_(track.submissionId);
+  if (!sub || String(sub.status) !== "published") { sendMessage_(chatId, t_(uid, "DOWNLOAD_DISABLED")); return false; }
+  const user = getUserById_(uid);
+  if (!admin && user && (user.blocked || !user.active)) {
+    sendMessage_(chatId, t_(uid, user.blocked ? "ACCOUNT_BLOCKED" : "ACCOUNT_INACTIVE"));
+    return false;
+  }
+  if (!admin && !["active", ""].includes(String(getSetting_("BOT_MODE") || "active"))) {
+    sendMessage_(chatId, niceText_("MAINTENANCE_TEXT", null, guestLang_(uid)));
+    return false;
+  }
+  if (remixIsVip_(sub) && !canAccessRemix_(uid, sub)) {
+    if (!isLoggedIn_(uid)) { sendEntryCard_(chatId, "💎 برای خرید ریمیکس ویژه ابتدا وارد حساب شو."); return false; }
+    sendMessage_(chatId, "💎 این ریمیکس VIP است. برای خرید، آرشیو ریمیکس‌ها را باز کن و ریمیکس موردنظر را انتخاب کن.", { inline_keyboard: [[{ text: "🎧 بازکردن آرشیو", callback_data: "rx:catalog" }], [{ text: "💎 پلن‌های VIP", callback_data: "rx:vip" }]] });
+    return false;
+  }
+  if (admin) return handleMusicDownloadDelivery_(chatId, uid, track.trackId);
+  if (!rateAllow_("dl:" + uid, getSetting_("RATE_DOWNLOADS_PER_HOUR") || 10, 3600)) {
+    sendMessage_(chatId, t_(uid, "RATE_LIMITED"));
+    return false;
+  }
+  const old = previousSession && ["PENDING_MUSIC_DOWNLOAD", "PENDING_MUSIC_REACTION"].indexOf(previousSession.state) < 0 ? previousSession : null;
+  const pending = {
+    trackId: track.trackId, submissionId: sub.id,
+    resumeState: old && old.state || "", resumeData: old && old.data || {}
+  };
+  if (!passForceJoin_(uid, chatId)) {
+    setSession_("M:" + uid, "PENDING_MUSIC_DOWNLOAD", pending);
+    return false;
+  }
+  if (!reactionRequirementsMet_(uid)) {
+    setSession_("M:" + uid, "PENDING_MUSIC_REACTION", pending);
+    sendReactionGate_(chatId, uid);
+    return false;
+  }
+  return handleMusicDownloadDelivery_(chatId, uid, track.trackId);
+}
+function continuePendingMusicDownload_(chatId, userId, data) {
+  const uid = String(userId), pending = data || {};
+  const id = String(pending.trackId || pending.submissionId || "");
+  if (!id) { clearSession_("M:" + uid); return false; }
+  const user = getUserById_(uid);
+  if (user && (user.blocked || !user.active)) {
+    clearSession_("M:" + uid);
+    sendMessage_(chatId, t_(uid, user.blocked ? "ACCOUNT_BLOCKED" : "ACCOUNT_INACTIVE"));
+    return false;
+  }
+  const track = getDownloadableMusicTrack_(id), sub = track && getSubmission_(track.submissionId);
+  if (!track || !sub || String(sub.status) !== "published") {
+    clearSession_("M:" + uid);
+    sendMessage_(chatId, t_(uid, "DOWNLOAD_DISABLED"));
+    return false;
+  }
+  if (remixIsVip_(sub) && !canAccessRemix_(uid, sub)) {
+    clearSession_("M:" + uid);
+    sendMessage_(chatId, "💎 این ریمیکس VIP است و هنوز خرید یا اشتراک فعالی برایت ثبت نشده است.", { inline_keyboard: [[{ text: "🎧 آرشیو ریمیکس‌ها", callback_data: "rx:catalog" }], [{ text: "💎 پلن‌های VIP", callback_data: "rx:vip" }]] });
+    return false;
+  }
+  if (!passForceJoin_(uid, chatId)) { setSession_("M:" + uid, "PENDING_MUSIC_DOWNLOAD", pending); return false; }
+  if (!reactionRequirementsMet_(uid)) { setSession_("M:" + uid, "PENDING_MUSIC_REACTION", pending); sendReactionGate_(chatId, uid); return false; }
+  clearSession_("M:" + uid);
+  const delivered = handleMusicDownloadDelivery_(chatId, uid, track.trackId);
+  if (pending.resumeState && ["PENDING_MUSIC_DOWNLOAD", "PENDING_MUSIC_REACTION"].indexOf(String(pending.resumeState)) < 0) {
+    setSession_("M:" + uid, pending.resumeState, pending.resumeData || {});
+  }
+  return delivered;
+}
+function handleReactionCallback_(cb) {
+  const uid = String(cb.from.id), chatId = String(cb.message && cb.message.chat ? cb.message.chat.id : uid);
+  if (!passForceJoin_(uid, chatId)) {
+    const pending = getSession_("M:" + uid);
+    if (pending && ["PENDING_MUSIC_DOWNLOAD", "PENDING_MUSIC_REACTION"].indexOf(pending.state) >= 0 && pending.data) {
+      setSession_("M:" + uid, "PENDING_MUSIC_DOWNLOAD", pending.data);
+    }
+    answerCallbackQuery_(cb.id, "ابتدا عضویت کانال را تکمیل کن.");
+    return;
+  }
+  if (!reactionRequirementsMet_(uid)) {
+    const count = reactionRequiredPostCount_();
+    answerCallbackQuery_(cb.id, "هنوز واکنش‌های لازم روی " + count + " پست ثبت نشده است.");
+    return;
+  }
+  const session = getSession_("M:" + uid);
+  if (session && ["PENDING_MUSIC_DOWNLOAD", "PENDING_MUSIC_REACTION"].indexOf(session.state) >= 0 && session.data && (session.data.trackId || session.data.submissionId)) {
+    answerCallbackQuery_(cb.id, "✅ تأیید شد؛ فایل در حال ارسال است.");
+    continuePendingMusicDownload_(chatId, uid, session.data);
+    return;
+  }
+  answerCallbackQuery_(cb.id, "✅ واکنش‌ها تأیید شد.");
+  if (isLoggedIn_(uid)) showUserMenu_(chatId);
+}
+function handleReactionAdminCallback_(cb) {
+  const uid = String(cb.from.id), chatId = String(cb.message && cb.message.chat ? cb.message.chat.id : uid);
+  const action = String(cb.data || "").split(":")[1] || "";
+  if (!hasAdminPermission_(uid, "settings")) { answerCallbackQuery_(cb.id, "دسترسی نداری."); return; }
+  if (action === "toggle") {
+    const next = getSetting_("REACTION_GATE_ENABLED") === "true" ? "false" : "true";
+    setSetting_("REACTION_GATE_ENABLED", next);
+    answerCallbackQuery_(cb.id, next === "true" ? "گیت واکنش روشن شد" : "گیت واکنش خاموش شد");
+    showFJPanel_(chatId, uid);
+    return;
+  }
+  if (action === "seed") {
+    setSession_("M:" + uid, "ADM_REACTION_SEED", {});
+    answerCallbackQuery_(cb.id);
+    const count = reactionRequiredPostCount_(), username = reactionTargetUsername_();
+    const examples = [];
+    for (let i = 0; i < count; i++) examples.push(username ? "https://t.me/" + username + "/" + (101 + i) : String(101 + i));
+    sendMessage_(chatId, "لینک یا شناسهٔ " + count + " پست آخر را بفرست؛ با فاصله یا ویرگول جدا کن.\nنمونه: " + examples.join(", ") + "\nبرای هر پست، کاربر باید واکنش‌های تنظیم‌شده را ثبت کند.", cancelKeyboard_());
+    return;
+  }
+  if (action === "channel") {
+    setSession_("M:" + uid, "ADM_REACTION_CHANNEL", {});
+    answerCallbackQuery_(cb.id);
+    sendMessage_(chatId, "یوزرنیم یا شناسهٔ کانال واکنش را بفرست؛ نمونه: @profonplus یا https://t.me/profonplus . برای کانال خصوصی شناسهٔ -100… را وارد کن و لینک دعوت آن را هم در فهرست عضویت اجباری اضافه کن.", cancelKeyboard_());
+    return;
+  }
+  if (action === "config") {
+    setSession_("M:" + uid, "ADM_REACTION_CONFIG", {});
+    answerCallbackQuery_(cb.id);
+    sendMessage_(chatId, "ایموجی‌های لازم و تعداد پست را با قالب زیر بفرست:\n🔥,🤍 | 3\nتعداد پست باید بین ۱ تا ۱۰ و ایموجی‌ها با ویرگول جدا شوند. این شرط روی هر پست بررسی می‌شود.", cancelKeyboard_());
+    return;
+  }
+  answerCallbackQuery_(cb.id, "دکمه نامعتبر است.");
+}
+function handleReactionConfigInput_(message) {
+  const uid = String(message.from.id), chatId = String(message.chat.id);
+  const raw = String(message.text || "").trim();
+  const parts = raw.split("|");
+  const emojis = String(parts[0] || "").split(/[,،\s]+/).map(function(x) { return x.trim(); }).filter(Boolean);
+  const countRaw = normalizeDigits_(String(parts[1] || "").trim());
+  const count = Number(countRaw);
+  if (!emojis.length || emojis.length > 6 || !isFinite(count) || Math.floor(count) !== count || count < 1 || count > 10) {
+    sendMessage_(chatId, "قالب نامعتبر است. نمونه: 🔥,🤍 | 3 (یک تا شش ایموجی و یک تا ده پست).", cancelKeyboard_());
+    return;
+  }
+  const value = Array.from(new Set(emojis)).join(",");
+  setSetting_("REACTION_REQUIRED_EMOJIS", value);
+  setSetting_("REACTION_REQUIRED_POSTS", String(count));
+  const sh = getSheet_(APP.SHEETS.REACTION_POSTS);
+  const col = HEADERS.ReactionPosts.indexOf("required_emojis") + 1;
+  if (col > 0 && sh.getLastRow() >= 2) {
+    const rows = readSheetObjects_(APP.SHEETS.REACTION_POSTS, HEADERS.ReactionPosts);
+    rows.forEach(function(row) { sh.getRange(row.rowNumber, col).setValue(value); });
+  }
+  REACTION_POSTS_MEMO_ = null;
+  REACTION_STATES_MEMO_ = null;
+  clearSession_("M:" + uid);
+  sendMessage_(chatId, "✅ شرط ثبت شد: " + value + " روی " + count + " پست آخر (همهٔ ایموجی‌ها روی هر پست لازم‌اند).");
+  showFJPanel_(chatId, uid);
+}
+function handleReactionChannelInput_(message) {
+  const uid = String(message.from.id), chatId = String(message.chat.id);
+  const raw = String(message.text || "").trim();
+  let normalized = raw, username = "";
+  const link = raw.match(/(?:https?:\/\/)?(?:www\.)?t\.me\/(?:s\/)?([A-Za-z][A-Za-z0-9_]{4,31})/i);
+  if (link) { username = link[1].toLowerCase(); normalized = "@" + link[1]; }
+  else if (/^@[A-Za-z][A-Za-z0-9_]{4,31}$/.test(raw)) { username = raw.slice(1).toLowerCase(); }
+  else if (/^-100\d+$/.test(raw) || /^-?\d+$/.test(raw)) normalized = raw;
+  else { sendMessage_(chatId, "فرمت کانال معتبر نیست. نمونه: @profonplus یا -1001234567890", cancelKeyboard_()); return; }
+  setSetting_("REACTION_CHANNEL_ID", normalized);
+  setSetting_("REACTION_CHANNEL_USERNAME", username);
+  REACTION_POSTS_MEMO_ = null;
+  clearSession_("M:" + uid);
+  sendMessage_(chatId, "✅ کانال واکنش ثبت شد: " + normalized + "\nاگر کانال خصوصی است، ربات باید مدیر باشد و پست‌ها را با لینک/شناسه seed کن.");
+  showFJPanel_(chatId, uid);
+}
+function parseReactionPostReference_(value) {
+  const raw = String(value || "").trim();
+  const link = raw.match(/(?:https?:\/\/)?(?:www\.)?t\.me\/(?:s\/)?([A-Za-z][A-Za-z0-9_]{4,31})\/(\d+)/i);
+  if (link) return { username: link[1].toLowerCase(), messageId: link[2], url: "https://t.me/" + link[1] + "/" + link[2] };
+  const idMatch = raw.match(/(?:^|\/)(\d+)(?:[?#].*)?$/);
+  if (idMatch) return { username: "", messageId: idMatch[1], url: "" };
+  return null;
+}
+function handleReactionSeedInput_(message) {
+  const uid = String(message.from.id), chatId = String(message.chat.id);
+  const refs = String(message.text || "").split(/[\s,،]+/).map(parseReactionPostReference_).filter(Boolean);
+  const count = reactionRequiredPostCount_();
+  if (refs.length !== count) { sendMessage_(chatId, "باید دقیقاً " + count + " لینک یا شناسه بفرستی. نمونه: 101,102,103", cancelKeyboard_()); return; }
+  const target = reactionTargetChannel_(), targetUsername = reactionTargetUsername_();
+  const uniqueRefs = {};
+  refs.forEach(function(ref) { uniqueRefs[String(ref.messageId)] = true; });
+  if (Object.keys(uniqueRefs).length !== refs.length) { sendMessage_(chatId, "شناسهٔ پست تکراری است؛ لینک‌های متفاوت بفرست.", cancelKeyboard_()); return; }
+  if (/^@[A-Za-z]/.test(target) && refs.some(function(ref) { return ref.username && ref.username !== targetUsername; })) {
+    sendMessage_(chatId, "یکی از لینک‌ها مربوط به کانال واکنش تنظیم‌شده نیست. لینک‌های @" + targetUsername + " را بفرست.", cancelKeyboard_());
+    return;
+  }
+  refs.forEach(function(ref) {
+    const username = ref.username || targetUsername;
+    upsertReactionPost_(target, username, ref.messageId, "پست کانال " + ref.messageId, ref.url || reactionPostUrl_(target, ref.messageId, username), "admin_seed");
+  });
+  clearSession_("M:" + uid);
+  sendMessage_(chatId, "✅ " + count + " پست ثبت شد. توجه: تلگرام تاریخچهٔ واکنش‌های قبل از اتصال وب‌هوک را به بات نمی‌دهد؛ کاربران باید واکنش‌ها را پس از فعال‌سازی دوباره ثبت کنند.");
+  showFJPanel_(chatId, uid);
+}
+
+// ───────────────────────── انتشار ریمیکس از پنل مدیر ─────────────────────────
+function startAdminRemixFlow_(chatId, uid) {
+  if (!isAdmin_(uid) || !hasAdminPermission_(uid, "submissions")) { sendMessage_(chatId, "⛔️ دسترسی انتشار لازم است."); return; }
+  const now = new Date();
+  const draft = {
+    draftId: newId_("RMX"), userId: String(uid), mode: "simple", status: "open", createdAt: now, updatedAt: now,
+    data: { title: "", artists: "", requestDetails: { isRemix: true, story: "", remixCode: "", vipOnly: false, vipPrice: 0 }, channels: [], channelTemplates: {} }
+  };
+  saveMusicDraft_(draft);
+  setSession_("M:" + uid, "ADM_REMIX_TITLE", { draftId: draft.draftId });
+  sendMessage_(chatId, "🎧 انتشار ریمیکس جدید\nنام آهنگ و نام هنرمند(ها) را با این قالب بفرست:\nنام آهنگ — نام هنرمند", cancelKeyboard_());
+}
+function remixDraftForAdmin_(uid, session) {
+  const draftId = session && session.data && session.data.draftId;
+  const draft = draftId ? getMusicDraft_(draftId) : null;
+  return draft && String(draft.userId) === String(uid) && isAdmin_(uid) ? draft : null;
+}
+function handleAdminRemixMessage_(message, session) {
+  const uid = String(message.from.id), chatId = String(message.chat.id);
+  const draft = remixDraftForAdmin_(uid, session);
+  if (!draft) { clearSession_("M:" + uid); sendMessage_(chatId, "پیش‌نویس انتشار پیدا نشد.", adminKeyboard_()); return; }
+  const text = String(message.text || "").trim();
+  const details = draft.data.requestDetails || (draft.data.requestDetails = {});
+  if (session.state === "ADM_REMIX_CHANNELS") { showAdminRemixChannels_(chatId, uid, draft); return; }
+  if (session.state === "ADM_REMIX_VIP") {
+    sendMessage_(chatId, "یکی از دکمه‌های «عمومی» یا «VIP پولی» را بزن تا ادامه دهی.");
+    return;
+  }
+  if (session.state === "ADM_REMIX_TITLE") {
+    const parts = text.split(/\s+[—–-]\s+/).map(function(x) { return x.trim(); }).filter(Boolean);
+    if (parts.length < 2 || parts[0].length < 2 || parts.slice(1).join(" — ").length < 2) {
+      sendMessage_(chatId, "عنوان و هنرمند را با جداکننده بفرست:\nنام آهنگ — نام هنرمند", cancelKeyboard_()); return;
+    }
+    draft.data.title = truncate_(parts[0], 160);
+    draft.data.artists = truncate_(parts.slice(1).join(" — "), 160);
+    saveMusicDraft_(draft);
+    setSession_("M:" + uid, "ADM_REMIX_COVER", { draftId: draft.draftId });
+    sendMessage_(chatId, "🖼 حالا تصویر کاور را بفرست. اگر می‌خواهی از کاور پیش‌فرض ربات استفاده شود، «رد شو» بنویس.", cancelKeyboard_());
+    return;
+  }
+  if (session.state === "ADM_REMIX_COVER") {
+    const photo = message.photo && message.photo.length ? message.photo[message.photo.length - 1] : null;
+    if (photo) appendDraftMedia_(draft.draftId, { kind: "photo", fileId: photo.file_id, caption: "" }, message);
+    else if (text !== "رد شو" && text.toLowerCase() !== "skip") { sendMessage_(chatId, "یک تصویر بفرست یا «رد شو» را بنویس.", cancelKeyboard_()); return; }
+    setSession_("M:" + uid, "ADM_REMIX_AUDIO", { draftId: draft.draftId });
+    sendMessage_(chatId, "🎵 فایل صوتی ریمیکس را به‌صورت Audio/MP3 بفرست.", cancelKeyboard_());
+    return;
+  }
+  if (session.state === "ADM_REMIX_AUDIO") {
+    const audio = message.audio || (message.document && isTelegramAudioDocument_(message.document) ? message.document : null);
+    if (!audio || !audio.file_id) { sendMessage_(chatId, "فایل صوتی معتبر بفرست (MP3).", cancelKeyboard_()); return; }
+    const audioInfo = { kind: "audio", mimeType: audio.mime_type || "audio/mpeg", fileName: audio.file_name || "" };
+    if (!isMp3Media_(audioInfo)) { sendMessage_(chatId, "فقط فایل MP3 برای انتشار ریمیکس پذیرفته می‌شود.", cancelKeyboard_()); return; }
+    const fileSize = Number(audio.file_size) || 0;
+    if (fileSize > getMaxAudioMb_() * 1024 * 1024) { sendMessage_(chatId, "حجم فایل از سقف " + getMaxAudioMb_() + " مگابایت بیشتر است.", cancelKeyboard_()); return; }
+    appendDraftMedia_(draft.draftId, { kind: "audio", fileId: audio.file_id, caption: "", fileSize: fileSize, mimeType: audioInfo.mimeType }, message);
+    setSession_("M:" + uid, "ADM_REMIX_STORY", { draftId: draft.draftId });
+    sendMessage_(chatId, "📖 داستان یا توضیح کوتاه ریمیکس را بنویس:", cancelKeyboard_());
+    return;
+  }
+  if (session.state === "ADM_REMIX_STORY") {
+    if (text.length < 2) { sendMessage_(chatId, "داستان را بنویس یا برای بی‌داستان بودن «ندارد» بفرست.", cancelKeyboard_()); return; }
+    details.story = text === "ندارد" ? "" : truncate_(text, 2500);
+    draft.data.requestDetails = details;
+    saveMusicDraft_(draft);
+    setSession_("M:" + uid, "ADM_REMIX_CODE", { draftId: draft.draftId });
+    sendMessage_(chatId, "🔠 کد ریمیکس را وارد کن؛ اگر کدی ندارد «ندارد» بنویس.", cancelKeyboard_());
+    return;
+  }
+  if (session.state === "ADM_REMIX_CODE") {
+    if (!text) { sendMessage_(chatId, "کد را وارد کن یا «ندارد» بفرست.", cancelKeyboard_()); return; }
+    details.remixCode = text === "ندارد" ? "" : truncate_(text, 64);
+    draft.data.requestDetails = details;
+    saveMusicDraft_(draft);
+    setSession_("M:" + uid, "ADM_REMIX_VIP", { draftId: draft.draftId });
+    sendMessage_(chatId, "این ریمیکس را ویژهٔ VIP و پولی منتشر می‌کنی؟", { inline_keyboard: [
+      [{ text: "🌍 عمومی", callback_data: "rxadm:vip:0:" + draft.draftId }, { text: "💎 VIP پولی", callback_data: "rxadm:vip:1:" + draft.draftId }],
+      [{ text: "❌ لغو", callback_data: "rxadm:cancel:" + draft.draftId }]
+    ] });
+    return;
+  }
+  if (session.state === "ADM_REMIX_PRICE") {
+    const price = Number(normalizeDigits_(text).replace(/[٬,،\s]/g, ""));
+    if (!(price > 0) || !isFinite(price)) { sendMessage_(chatId, "مبلغ مثبت به تومان وارد کن (مثلاً 50000).", cancelKeyboard_()); return; }
+    details.vipOnly = true;
+    details.vipPrice = price;
+    draft.data.requestDetails = details;
+    saveMusicDraft_(draft);
+    setSession_("M:" + uid, "ADM_REMIX_CHANNELS", { draftId: draft.draftId });
+    showAdminRemixChannels_(chatId, uid, draft);
+    return;
+  }
+}
+function defaultAdminRemixChannels_(uid) {
+  const all = activePublishChannels_();
+  const defaults = defaultChannelIdsForUser_(uid).map(function(ch) { return String(ch.id); });
+  return defaults.length ? defaults.filter(function(id) { return all.some(function(ch) { return String(ch.id) === id; }); }) : all.map(function(ch) { return String(ch.id); });
+}
+function remixChannelTemplates_(draft, channels) {
+  const data = draft && draft.data || {};
+  const chosen = data.channelTemplates || {};
+  const out = {};
+  (channels || []).forEach(function(ch) { out[String(ch.id)] = normalizeTemplateKey_(chosen[String(ch.id)] || "remix"); });
+  return out;
+}
+function showAdminRemixChannels_(chatId, uid, draft, editMsgId) {
+  if (!draft) { sendOrEditAdminPanel_(chatId, editMsgId, "پیش‌نویس پیدا نشد.", null); return; }
+  const channels = activePublishChannels_();
+  if (!channels.length) {
+    sendOrEditAdminPanel_(chatId, editMsgId, "⛔️ هنوز کانال انتشار فعالی تنظیم نشده است. ابتدا از «کانال‌ها» کانال اصلی را وارد کن.", { inline_keyboard: [[{ text: "🏠 پنل مدیر", callback_data: "d:home" }]] });
+    return;
+  }
+  const d = draft.data || {};
+  if (!Array.isArray(d.channels)) d.channels = defaultAdminRemixChannels_(uid);
+  const templates = remixChannelTemplates_(draft, channels);
+  d.channelTemplates = templates;
+  draft.data = d;
+  saveMusicDraft_(draft);
+  const rows = channels.map(function(ch, index) {
+    const selected = d.channels.map(String).indexOf(String(ch.id)) >= 0;
+    const template = templates[String(ch.id)] || "remix";
+    const label = ch.title || ch.username || ch.chatId;
+    return [{ text: (selected ? "✅ " : "▫️ ") + truncate_(label, 22), callback_data: "rxadm:ch:" + index + ":" + draft.draftId },
+      { text: "🎨 " + truncate_(postTemplateLabel_(template), 18), callback_data: "rxadm:tpl:" + index + ":" + draft.draftId }];
+  });
+  rows.push([{ text: "👁 پیش‌نمایش", callback_data: "rxadm:preview:" + draft.draftId }, { text: "🔄 بازخوانی", callback_data: "rxadm:show:" + draft.draftId }]);
+  rows.push([{ text: "⏳ قراردادن در صف", callback_data: "rxadm:queue:" + draft.draftId }, { text: "🚀 انتشار اکنون", callback_data: "rxadm:publish:" + draft.draftId }]);
+  rows.push([{ text: "❌ لغو", callback_data: "rxadm:cancel:" + draft.draftId }]);
+  sendOrEditAdminPanel_(chatId, editMsgId, "📡 کانال‌ها و قالب انتشار\n🎧 " + draft.data.title + "\nکانال‌ها را انتخاب کن؛ قالب پیش‌فرض هر کانال «قالب ریمیکس» است.", { inline_keyboard: rows });
+}
+function previewAdminRemix_(chatId, uid, draft) {
+  const details = draft.data.requestDetails || {};
+  const selected = Array.isArray(draft.data.channels) ? draft.data.channels.map(String) : [];
+  const channels = activePublishChannels_().filter(function(ch) { return selected.indexOf(String(ch.id)) >= 0; });
+  if (!channels.length) { sendMessage_(chatId, "اول حداقل یک کانال را انتخاب کن."); return; }
+  const templates = remixChannelTemplates_(draft, activePublishChannels_());
+  const preview = {
+    id: "PREVIEW", title: draft.data.title, artists: draft.data.artists, caption: details.story || "", links: [], platformVisible: {},
+    request: { details: details }, mode: "simple"
+  };
+  channels.slice(0, 3).forEach(function(ch) {
+    const key = templates[String(ch.id)] || "remix";
+    const caption = buildTemplateCaption_(preview, ch, { template: key });
+    sendMessage_(chatId, "👁 پیش‌نمایش · " + ch.title + " · " + postTemplateLabel_(key) + "\n\n" + caption, null, { parse_mode: "HTML" });
+  });
+}
+function saveAdminRemixSubmission_(chatId, uid, draft, publishNow) {
+  const data = draft.data || {}, details = data.requestDetails || {};
+  const selected = Array.isArray(data.channels) ? data.channels.map(String) : [];
+  if (!data.title || !data.artists) { sendMessage_(chatId, "عنوان و هنرمند لازم است."); return false; }
+  if (!getDraftMedia_(draft.draftId).some(function(media) { return media.kind === "audio"; })) { sendMessage_(chatId, "فایل صوتی ریمیکس لازم است."); return false; }
+  if (!selected.length) { sendMessage_(chatId, "حداقل یک کانال انتشار انتخاب کن."); return false; }
+  const active = activePublishChannels_().filter(function(ch) { return selected.indexOf(String(ch.id)) >= 0; });
+  if (!active.length) { sendMessage_(chatId, "کانال انتخاب‌شده دیگر فعال نیست؛ دوباره انتخاب کن."); return false; }
+  const templates = remixChannelTemplates_(draft, activePublishChannels_());
+  const channelMeta = active.map(function(ch) { return { id: ch.id, template: templates[String(ch.id)] || "remix" }; });
+  const channelTemplates = channelMeta.map(function(ch) { return { id: String(ch.id), template: ch.template }; });
+  const requestDetails = Object.assign({}, details, {
+    isRemix: true, channels: active.map(function(ch) { return String(ch.id); }), channelTemplates: channelTemplates
+  });
+  const meta = {
+    title: String(data.title), artists: String(data.artists), featuring: "", caption: String(details.story || ""),
+    links: [], platformVisible: {}, channels: channelMeta, details: requestDetails,
+    scheduledAtValue: publishNow ? nowMs_() : ""
+  };
+  let sub;
+  try { sub = saveMusicSubmission_(draft, meta); }
+  catch (e) { logError_("saveAdminRemixSubmission_", e, { userId: uid }); sendMessage_(chatId, "❌ ذخیرهٔ ریمیکس ناموفق بود: " + truncate_(e && e.message || e, 240)); return false; }
+  if (!sub) { sendMessage_(chatId, "❌ پیش‌نویس به ارسال تبدیل نشد."); return false; }
+  setSubmissionField_(sub.id, "status", "approved");
+  sub.status = "approved";
+  if (publishNow) {
+    setSubmissionField_(sub.id, "scheduledAt", new Date());
+    sub.scheduledAt = new Date();
+    logAdminAction_(uid, "remix_publish_now", sub.id, sub.title);
+    const ok = publishOneSubmission_(sub);
+    sendMessage_(chatId, ok ? "✅ ریمیکس در کانال‌های انتخاب‌شده منتشر شد.\n🆔 " + sub.id : "⚠️ انتشار شروع شد اما در یک یا چند کانال ناموفق بود؛ جزئیات در کارت ارسال ثبت شده است.\n🆔 " + sub.id);
+  } else {
+    setSubmissionField_(sub.id, "scheduledAt", sub.scheduledAt || computeNextSlot_(getSetting_("PUBLISH_INTERVAL_MIN")));
+    try { ensureWorkersReady_(true); } catch (e) { logError_("ensureWorkersReady_:admin_remix", e, { submissionId: sub.id }); }
+    logAdminAction_(uid, "remix_queue", sub.id, sub.title);
+    sendMessage_(chatId, "✅ ریمیکس در صف انتشار قرار گرفت.\n🆔 " + sub.id);
+  }
+  clearSession_("M:" + uid);
+  showAdminMenu_(chatId);
+  return true;
+}
+function handleAdminRemixCallback_(cb) {
+  const uid = String(cb.from.id), chatId = String(cb.message && cb.message.chat ? cb.message.chat.id : uid);
+  const parts = String(cb.data || "").split(":");
+  const action = parts[1] || "";
+  if (!isAdmin_(uid) || !isAdminAuthenticated_(uid) || !hasAdminPermission_(uid, "submissions")) { answerCallbackQuery_(cb.id, "دسترسی نداری."); return; }
+  if (action === "vip") {
+    const draft = getMusicDraft_(parts[3]);
+    if (!draft || String(draft.userId) !== uid) { answerCallbackQuery_(cb.id, "پیش‌نویس پیدا نشد."); return; }
+    const details = draft.data.requestDetails || {};
+    if (parts[2] === "1") {
+      details.vipOnly = true;
+      draft.data.requestDetails = details;
+      saveMusicDraft_(draft);
+      setSession_("M:" + uid, "ADM_REMIX_PRICE", { draftId: draft.draftId });
+      answerCallbackQuery_(cb.id);
+      sendMessage_(chatId, "💰 قیمت تکی این ریمیکس را به تومان وارد کن. مبلغ پیش‌فرض سیستم " + Number(getSetting_("VIP_REMIX_DEFAULT_PRICE") || 50000).toLocaleString("en-US") + " است؛ برای پذیرش همان مبلغ، آن را ارسال کن.", cancelKeyboard_());
+      return;
+    }
+    details.vipOnly = false; details.vipPrice = 0;
+    draft.data.requestDetails = details;
+    saveMusicDraft_(draft);
+    draft.data.channels = defaultAdminRemixChannels_(uid);
+    setSession_("M:" + uid, "ADM_REMIX_CHANNELS", { draftId: draft.draftId });
+    answerCallbackQuery_(cb.id);
+    showAdminRemixChannels_(chatId, uid, draft);
+    return;
+  }
+  const draftId = action === "ch" || action === "tpl" ? parts[3] : parts[2];
+  const draft = getMusicDraft_(draftId);
+  if (!draft || String(draft.userId) !== uid) { answerCallbackQuery_(cb.id, "پیش‌نویس پیدا نشد."); return; }
+  if (action === "cancel") {
+    if (draft.status === "open") { try { deleteDraftCompletely_(draft.draftId); } catch (e) {} }
+    clearSession_("M:" + uid);
+    answerCallbackQuery_(cb.id, "لغو شد");
+    showAdminMenu_(chatId, "انتشار لغو شد.");
+    return;
+  }
+  if (action === "show") { answerCallbackQuery_(cb.id); showAdminRemixChannels_(chatId, uid, draft, cb.message && cb.message.message_id); return; }
+  if (action === "ch" || action === "tpl") {
+    const channels = activePublishChannels_(), index = Number(parts[2]);
+    const channel = channels[index];
+    if (!channel) { answerCallbackQuery_(cb.id, "کانال نامعتبر است."); return; }
+    const selected = Array.isArray(draft.data.channels) ? draft.data.channels.map(String) : [];
+    if (action === "ch") {
+      const at = selected.indexOf(String(channel.id));
+      if (at >= 0) selected.splice(at, 1); else selected.push(String(channel.id));
+      draft.data.channels = selected;
+    } else {
+      const keys = postTemplateKeys_(), current = normalizeTemplateKey_((draft.data.channelTemplates || {})[String(channel.id)] || "remix");
+      const at = keys.indexOf(current);
+      draft.data.channelTemplates = draft.data.channelTemplates || {};
+      draft.data.channelTemplates[String(channel.id)] = keys[(at + 1) % keys.length];
+    }
+    saveMusicDraft_(draft);
+    setSession_("M:" + uid, "ADM_REMIX_CHANNELS", { draftId: draft.draftId });
+    answerCallbackQuery_(cb.id, action === "ch" ? "انتخاب کانال به‌روز شد" : "قالب کانال تغییر کرد");
+    showAdminRemixChannels_(chatId, uid, draft, cb.message && cb.message.message_id);
+    return;
+  }
+  if (action === "preview") { answerCallbackQuery_(cb.id); previewAdminRemix_(chatId, uid, draft); return; }
+  if (action === "queue" || action === "publish") {
+    answerCallbackQuery_(cb.id, action === "publish" ? "در حال انتشار…" : "در حال ثبت در صف…");
+    saveAdminRemixSubmission_(chatId, uid, draft, action === "publish");
+    return;
+  }
+  answerCallbackQuery_(cb.id, "دکمه نامعتبر است.");
 }
